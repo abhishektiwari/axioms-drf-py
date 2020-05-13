@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="axioms-drf-py",
-    version="0.0.1",
+    version="0.0.2",
     author="Axioms",
     author_email="info@axioms.io",
     description="Django REST Framework (DRF) SDK for Axioms",
@@ -33,7 +33,6 @@ setuptools.setup(
         'python-box',
         'django >= 2.0'
         'djangorestframework',
-        'djangorestframework-composed-permissions',
         'requests<3',
         'django-environ'
     ]

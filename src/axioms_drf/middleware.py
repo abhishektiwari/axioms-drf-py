@@ -3,11 +3,11 @@ import jwt
 from django.conf import settings
 from .helper import has_valid_token, get_key_from_jwks_json
 
-class AccessTokenMiddleware(MiddlewareMixin):
 
+class AccessTokenMiddleware(MiddlewareMixin):
     def process_request(self, request):
-        header_name = 'Authorization'
-        token_prefix = 'bearer'
+        header_name = "Authorization"
+        token_prefix = "bearer"
         request.auth_jwt = None
         request.missing_auth_header = False
         request.invalid_bearer_token = False
@@ -15,16 +15,19 @@ class AccessTokenMiddleware(MiddlewareMixin):
         try:
             settings.AXIOMS_DOMAIN
             settings.AXIOMS_AUDIENCE
-            settings.URL_LIB_SSL_IGNORE
         except AttributeError as e:
-            raise Exception('🔥🔥  {}. Please set AXIOMS_DOMAIN, AXIOMS_AUDIENCE, URL_LIB_SSL_IGNORE in your settings.'.format(e))
+            raise Exception(
+                "🔥🔥  {}. Please set AXIOMS_DOMAIN, AXIOMS_AUDIENCE in your settings.".format(
+                    e
+                )
+            )
 
         auth_header = request.headers.get(header_name, None)
         if auth_header is None:
             request.missing_auth_header = True
         else:
             try:
-                bearer, _, token = auth_header.partition(' ')
+                bearer, _, token = auth_header.partition(" ")
                 if bearer.lower() == token_prefix and token != "":
                     payload = has_valid_token(token)
                     request.auth_jwt = payload
