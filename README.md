@@ -19,6 +19,6 @@ See [documentation](https://developer.axioms.io/docs/sdks-samples/use-with-apis/
 ## DRF Sample
 To see a complete working example download [DRF sample](https://github.com/axioms-io/sample-python-drf) from our Github repository or simply deploy to Heroku by clicking following button. You will need to provide Axioms domain and Axioms audience to complete deployment.
 
-<a href="https://heroku.com/deploy?template=https://github.com/axioms-io/sample-python-flask">
-  <img src="https://www.herokucdn.com/deploy/button.svg" alt="Deploy" width="200px" />
+<a href="https://heroku.com/deploy?template=https://github.com/axioms-io/sample-python-drf">
+  <img src="https://www.herokucdn.com/deploy/button.svg" alt="Deploy" width="200px">
 </a>
