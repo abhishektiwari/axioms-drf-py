@@ -6,6 +6,9 @@ from rest_framework import status
 
 class HasValidAccessToken(authentication.BaseAuthentication):
     def authenticate(self, request):
+        # Allow OPTIONS request without access token
+        if request.method == 'OPTIONS':
+            return (None, True)
         auth_jwt = request.auth_jwt
         missing_auth_header = request.missing_auth_header
         invalid_bearer_token = request.invalid_bearer_token
@@ -27,6 +30,25 @@ class HasValidAccessToken(authentication.BaseAuthentication):
             settings.AXIOMS_DOMAIN
         )
 
+class IsAccessTokenAuthenticated(HasValidAccessToken):
+    def authenticate(self, request):
+        super().authenticate(request)
+
+class IsAnyPostOrIsAccessTokenAuthenticated(HasValidAccessToken):
+    def authenticate(self, request):
+        # Allow POST requests without access token
+        if request.method == 'POST':
+            return (None, True)
+        else:
+            super().authenticate(request)
+
+class IsAnyGetOrIsAccessTokenAuthenticated(HasValidAccessToken):
+    def authenticate(self, request):
+        # Allow GET requests without access token
+        if request.method == 'GET':
+            return (None, True)
+        else:
+            super().authenticate(request)
 
 class MissingAuthorizationHeader(APIException):
     status_code = status.HTTP_403_FORBIDDEN
