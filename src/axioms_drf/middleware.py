@@ -1,5 +1,6 @@
 from django.utils.deprecation import MiddlewareMixin
 import jwt
+from jwt.exceptions import DecodeError
 from django.conf import settings
 from .helper import has_valid_token, get_key_from_jwks_json
 
@@ -33,5 +34,5 @@ class AccessTokenMiddleware(MiddlewareMixin):
                     request.auth_jwt = payload
                 else:
                     request.invalid_bearer_token = True
-            except (ValueError, AttributeError):
+            except (ValueError, AttributeError, DecodeError):
                 request.invalid_bearer_token = True
