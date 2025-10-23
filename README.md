@@ -1,6 +1,7 @@
 # axioms-drf-py ![PyPI](https://img.shields.io/pypi/v/axioms-drf-py)
 [Axioms](https://axioms.io) Python client for Django Rest Framework (DRF). Secure your DRF APIs using Axioms Authentication and Authorization.
 
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/axioms-drf-py?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/axioms-drf-py)
 ## Prerequisite
 
 * Python 3.7+
