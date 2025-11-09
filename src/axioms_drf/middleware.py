@@ -27,11 +27,10 @@ Classes:
     ``AccessTokenMiddleware``: Main middleware for JWT token processing.
 """
 
-from django.utils.deprecation import MiddlewareMixin
-import jwt
-from jwt.exceptions import DecodeError
 from django.conf import settings
-from .helper import has_valid_token, get_key_from_jwks_json
+from django.utils.deprecation import MiddlewareMixin
+
+from .helper import has_valid_token
 
 
 class AccessTokenMiddleware(MiddlewareMixin):
@@ -70,7 +69,8 @@ class AccessTokenMiddleware(MiddlewareMixin):
         AXIOMS_DOMAIN = 'auth.example.com'
 
     Raises:
-        Exception: If required settings (``AXIOMS_DOMAIN`` or ``AXIOMS_AUDIENCE``) are not configured.
+        Exception: If required settings (``AXIOMS_DOMAIN`` or ``AXIOMS_AUDIENCE``)
+            are not configured.
 
     Note:
         This middleware should be placed early in the middleware stack, before
@@ -85,9 +85,11 @@ class AccessTokenMiddleware(MiddlewareMixin):
         and sets request attributes for use by authentication classes.
 
         Request attributes set:
-            ``auth_jwt``: Box object with token payload if valid, ``False`` if invalid, ``None`` if missing
+            ``auth_jwt``: Box object with token payload if valid, ``False`` if invalid,
+                ``None`` if missing
             ``missing_auth_header``: ``True`` if ``Authorization`` header not present
-            ``invalid_bearer_token``: ``True`` if header doesn't match ``Bearer <token>`` format
+            ``invalid_bearer_token``: ``True`` if header doesn't match
+                ``Bearer <token>`` format
 
         Args:
             request: Django HttpRequest object.
@@ -126,6 +128,7 @@ class AccessTokenMiddleware(MiddlewareMixin):
                 else:
                     request.invalid_bearer_token = True
             except Exception:
-                # Catch all exceptions from token validation (invalid algorithm, expired, wrong issuer, etc.)
+                # Catch all exceptions from token validation
+                # (invalid algorithm, expired, wrong issuer, etc.)
                 # Set auth_jwt to False so authentication classes know the token is invalid
                 request.auth_jwt = False

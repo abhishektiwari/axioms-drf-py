@@ -27,10 +27,9 @@ Example::
             return Response({'user': request.user})
 """
 
-from rest_framework import authentication
-from rest_framework.exceptions import APIException
 from django.conf import settings
-from rest_framework import status
+from rest_framework import authentication, status
+from rest_framework.exceptions import APIException
 
 
 class HasValidAccessToken(authentication.BaseAuthentication):
@@ -75,7 +74,7 @@ class HasValidAccessToken(authentication.BaseAuthentication):
             UnauthorizedAccess: If token validation fails.
         """
         # Allow OPTIONS request without access token
-        if request.method == 'OPTIONS':
+        if request.method == "OPTIONS":
             return (None, True)
         auth_jwt = request.auth_jwt
         missing_auth_header = request.missing_auth_header
@@ -102,9 +101,10 @@ class HasValidAccessToken(authentication.BaseAuthentication):
         Returns:
             str: ``WWW-Authenticate`` header value following RFC 6750.
         """
-        return "Bearer realm='{}', error='unauthorized_access', error_description='Invalid access token'".format(
-            settings.AXIOMS_DOMAIN
-        )
+        return (
+            "Bearer realm='{}', error='unauthorized_access', "
+            "error_description='Invalid access token'"
+        ).format(settings.AXIOMS_DOMAIN)
 
 
 class IsAccessTokenAuthenticated(HasValidAccessToken):
@@ -157,7 +157,7 @@ class IsAnyPostOrIsAccessTokenAuthenticated(HasValidAccessToken):
             tuple: ``(None, True)`` for ``POST`` requests, otherwise delegates to parent.
         """
         # Allow POST requests without access token
-        if request.method == 'POST':
+        if request.method == "POST":
             return (None, True)
         else:
             super().authenticate(request)
@@ -193,7 +193,7 @@ class IsAnyGetOrIsAccessTokenAuthenticated(HasValidAccessToken):
             tuple: ``(None, True)`` for ``GET`` requests, otherwise delegates to parent.
         """
         # Allow GET requests without access token
-        if request.method == 'GET':
+        if request.method == "GET":
             return (None, True)
         else:
             super().authenticate(request)
@@ -210,6 +210,7 @@ class MissingAuthorizationHeader(APIException):
         default_detail: Error message dict with error flag and description
         default_code: ``missing_header``
     """
+
     status_code = status.HTTP_401_UNAUTHORIZED
     default_detail = {"error": True, "message": "Missing Authorization Header"}
     default_code = "missing_header"
@@ -226,6 +227,7 @@ class InvalidAuthorizationBearer(APIException):
         default_detail: Error message dict with error flag and description
         default_code: ``missing_bearer``
     """
+
     status_code = status.HTTP_401_UNAUTHORIZED
     default_detail = {"error": True, "message": "Invalid Authorization Bearer"}
     default_code = "missing_bearer"
@@ -247,6 +249,7 @@ class UnauthorizedAccess(APIException):
         default_detail: Error message dict with error flag and description
         default_code: ``unauthorized_access``
     """
+
     status_code = status.HTTP_401_UNAUTHORIZED
     default_detail = {"error": True, "message": "Invalid access token."}
     default_code = "unauthorized_access"

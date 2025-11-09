@@ -54,15 +54,13 @@ Example::
             return Response({'status': 'created'})
 """
 
-import logging
-import re
-from django.core.exceptions import ImproperlyConfigured
-from rest_framework.permissions import BasePermission
-from rest_framework.exceptions import APIException
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from rest_framework import status
+from rest_framework.exceptions import APIException
+from rest_framework.permissions import BasePermission
 
-from .helper import check_scopes, check_roles, check_permissions
+from .helper import check_permissions, check_roles, check_scopes
 
 
 def get_token_scopes(auth_jwt):
@@ -88,20 +86,20 @@ def get_token_scopes(auth_jwt):
         scopes = get_token_scopes(token)  # Returns: 'read:data write:data'
     """
     # Try standard 'scope' claim first
-    if hasattr(auth_jwt, 'scope'):
-        return getattr(auth_jwt, 'scope', '')
+    if hasattr(auth_jwt, "scope"):
+        return getattr(auth_jwt, "scope", "")
 
     # Then try configured claims if AXIOMS_SCOPE_CLAIMS is set
-    if hasattr(settings, 'AXIOMS_SCOPE_CLAIMS'):
+    if hasattr(settings, "AXIOMS_SCOPE_CLAIMS"):
         for claim_name in settings.AXIOMS_SCOPE_CLAIMS:
             if hasattr(auth_jwt, claim_name):
-                scope_value = getattr(auth_jwt, claim_name, '')
+                scope_value = getattr(auth_jwt, claim_name, "")
                 # Handle both string and list formats
                 if isinstance(scope_value, list):
-                    return ' '.join(scope_value)
+                    return " ".join(scope_value)
                 return scope_value
 
-    return ''
+    return ""
 
 
 def get_token_roles(auth_jwt):
@@ -127,11 +125,11 @@ def get_token_roles(auth_jwt):
         roles = get_token_roles(token)  # Returns: ['admin']
     """
     # Try standard 'roles' claim first
-    if hasattr(auth_jwt, 'roles'):
-        return getattr(auth_jwt, 'roles', [])
+    if hasattr(auth_jwt, "roles"):
+        return getattr(auth_jwt, "roles", [])
 
     # Then try configured claims if AXIOMS_ROLES_CLAIMS is set
-    if hasattr(settings, 'AXIOMS_ROLES_CLAIMS'):
+    if hasattr(settings, "AXIOMS_ROLES_CLAIMS"):
         for claim_name in settings.AXIOMS_ROLES_CLAIMS:
             if hasattr(auth_jwt, claim_name):
                 return getattr(auth_jwt, claim_name, [])
@@ -162,11 +160,11 @@ def get_token_permissions(auth_jwt):
         perms = get_token_permissions(token)  # Returns: ['read:users']
     """
     # Try standard 'permissions' claim first
-    if hasattr(auth_jwt, 'permissions'):
-        return getattr(auth_jwt, 'permissions', [])
+    if hasattr(auth_jwt, "permissions"):
+        return getattr(auth_jwt, "permissions", [])
 
     # Then try configured claims if AXIOMS_PERMISSIONS_CLAIMS is set
-    if hasattr(settings, 'AXIOMS_PERMISSIONS_CLAIMS'):
+    if hasattr(settings, "AXIOMS_PERMISSIONS_CLAIMS"):
         for claim_name in settings.AXIOMS_PERMISSIONS_CLAIMS:
             if hasattr(auth_jwt, claim_name):
                 return getattr(auth_jwt, claim_name, [])
@@ -204,6 +202,7 @@ class HasAccessTokenScopes(BasePermission):
         InsufficientPermission: If user doesn't have required scopes.
         ImproperlyConfigured: If no scope attribute is defined on the view.
     """
+
     message = "Permission Denied"
 
     def has_permission(self, request, view):
@@ -224,13 +223,16 @@ class HasAccessTokenScopes(BasePermission):
             token_scopes = get_token_scopes(auth_jwt)
 
             # Get all scope requirements
-            all_scopes = getattr(view, 'access_token_all_scopes', None)
-            any_scopes = getattr(view, 'access_token_any_scopes', None) or getattr(view, 'access_token_scopes', None)
+            all_scopes = getattr(view, "access_token_all_scopes", None)
+            any_scopes = getattr(view, "access_token_any_scopes", None) or getattr(
+                view, "access_token_scopes", None
+            )
 
             # At least one requirement must be defined
             if not all_scopes and not any_scopes:
                 raise ImproperlyConfigured(
-                    "Define access_token_scopes, access_token_any_scopes, or access_token_all_scopes attribute"
+                    "Define access_token_scopes, access_token_any_scopes, "
+                    "or access_token_all_scopes attribute"
                 )
 
             # Check AND logic (all scopes required) if specified
@@ -284,6 +286,7 @@ class HasAccessTokenRoles(BasePermission):
         InsufficientPermission: If user doesn't have required roles.
         ImproperlyConfigured: If no role attribute is defined on the view.
     """
+
     message = "Permission Denied"
 
     def has_permission(self, request, view):
@@ -304,13 +307,16 @@ class HasAccessTokenRoles(BasePermission):
             token_roles = get_token_roles(auth_jwt)
 
             # Get all role requirements
-            all_roles = getattr(view, 'access_token_all_roles', None)
-            any_roles = getattr(view, 'access_token_any_roles', None) or getattr(view, 'access_token_roles', None)
+            all_roles = getattr(view, "access_token_all_roles", None)
+            any_roles = getattr(view, "access_token_any_roles", None) or getattr(
+                view, "access_token_roles", None
+            )
 
             # At least one requirement must be defined
             if not all_roles and not any_roles:
                 raise ImproperlyConfigured(
-                    "Define access_token_roles, access_token_any_roles, or access_token_all_roles attribute"
+                    "Define access_token_roles, access_token_any_roles, "
+                    "or access_token_all_roles attribute"
                 )
 
             # Check AND logic (all roles required) if specified
@@ -337,8 +343,10 @@ class HasAccessTokenRoles(BasePermission):
 class HasAccessTokenPermissions(BasePermission):
     """Permission class that checks if user has required permissions.
 
-    Supports both OR logic (any permission) and AND logic (all permissions) through different attributes:
-    - ``access_token_permissions`` or ``access_token_any_permissions``: User needs ANY ONE (OR logic)
+    Supports both OR logic (any permission) and AND logic (all permissions)
+    through different attributes:
+    - ``access_token_permissions`` or ``access_token_any_permissions``:
+      User needs ANY ONE (OR logic)
     - ``access_token_all_permissions``: User needs ALL (AND logic)
 
     Attributes:
@@ -364,6 +372,7 @@ class HasAccessTokenPermissions(BasePermission):
         InsufficientPermission: If user doesn't have required permissions.
         ImproperlyConfigured: If no permission attribute is defined on the view.
     """
+
     message = "Permission Denied"
 
     def has_permission(self, request, view):
@@ -384,13 +393,16 @@ class HasAccessTokenPermissions(BasePermission):
             token_permissions = get_token_permissions(auth_jwt)
 
             # Get all permission requirements
-            all_permissions = getattr(view, 'access_token_all_permissions', None)
-            any_permissions = getattr(view, 'access_token_any_permissions', None) or getattr(view, 'access_token_permissions', None)
+            all_permissions = getattr(view, "access_token_all_permissions", None)
+            any_permissions = getattr(
+                view, "access_token_any_permissions", None
+            ) or getattr(view, "access_token_permissions", None)
 
             # At least one requirement must be defined
             if not all_permissions and not any_permissions:
                 raise ImproperlyConfigured(
-                    "Define access_token_permissions, access_token_any_permissions, or access_token_all_permissions attribute"
+                    "Define access_token_permissions, access_token_any_permissions, "
+                    "or access_token_all_permissions attribute"
                 )
 
             # Check AND logic (all permissions required) if specified
@@ -436,6 +448,7 @@ class InsufficientPermission(APIException):
                 # InsufficientPermission raised if user lacks 'admin' scope
                 return Response({'data': 'protected'})
     """
+
     status_code = status.HTTP_403_FORBIDDEN
     default_detail = {
         "error": True,

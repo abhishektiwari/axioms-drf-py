@@ -5,23 +5,32 @@ algorithm validation, issuer validation, and configuration hierarchy.
 """
 
 import json
-import jwt
 import ssl
 import time
 from urllib.request import urlopen
-from jwcrypto import jwk, jws
+
+import jwt
 from box import Box
 from django.conf import settings
 from django.core.cache import cache
+from jwcrypto import jwk, jws
+
 from .authentication import UnauthorizedAccess
 
-
 # Allowed JWT algorithms (secure asymmetric algorithms only)
-ALLOWED_ALGORITHMS = frozenset([
-    'RS256', 'RS384', 'RS512',  # RSA with SHA-256, SHA-384, SHA-512
-    'ES256', 'ES384', 'ES512',  # ECDSA with SHA-256, SHA-384, SHA-512
-    'PS256', 'PS384', 'PS512',  # RSA-PSS with SHA-256, SHA-384, SHA-512
-])
+ALLOWED_ALGORITHMS = frozenset(
+    [
+        "RS256",
+        "RS384",
+        "RS512",  # RSA with SHA-256, SHA-384, SHA-512
+        "ES256",
+        "ES384",
+        "ES512",  # ECDSA with SHA-256, SHA-384, SHA-512
+        "PS256",
+        "PS384",
+        "PS512",  # RSA-PSS with SHA-256, SHA-384, SHA-512
+    ]
+)
 
 
 def has_valid_token(token):
@@ -92,7 +101,7 @@ def check_token_validity(token, key, alg):
     # Check issuer if configured
     expected_issuer = get_expected_issuer()
     if expected_issuer:
-        token_issuer = getattr(payload, 'iss', None)
+        token_issuer = getattr(payload, "iss", None)
         if not token_issuer:
             raise UnauthorizedAccess
         if token_issuer != expected_issuer:
@@ -116,7 +125,7 @@ def get_payload_from_token(token, key, alg):
     jwstoken.deserialize(token)
 
     # Verify algorithm matches
-    token_alg = jwstoken.jose_header.get('alg')
+    token_alg = jwstoken.jose_header.get("alg")
     if token_alg != alg or token_alg not in ALLOWED_ALGORITHMS:
         return None
 
@@ -139,14 +148,14 @@ def get_expected_issuer():
         str or None: Expected issuer URL.
     """
     # Check for explicit issuer URL first
-    if hasattr(settings, 'AXIOMS_ISS_URL') and settings.AXIOMS_ISS_URL:
+    if hasattr(settings, "AXIOMS_ISS_URL") and settings.AXIOMS_ISS_URL:
         return settings.AXIOMS_ISS_URL
 
     # Construct from domain if available
-    if hasattr(settings, 'AXIOMS_DOMAIN') and settings.AXIOMS_DOMAIN:
+    if hasattr(settings, "AXIOMS_DOMAIN") and settings.AXIOMS_DOMAIN:
         domain = settings.AXIOMS_DOMAIN
         # Remove protocol if present
-        domain = domain.replace('https://', '').replace('http://', '')
+        domain = domain.replace("https://", "").replace("http://", "")
         return f"https://{domain}"
 
     # No issuer validation if neither is configured
@@ -168,7 +177,7 @@ def get_jwks_url():
         UnauthorizedAccess: If no valid configuration is found.
     """
     # Use explicit JWKS URL if provided
-    if hasattr(settings, 'AXIOMS_JWKS_URL') and settings.AXIOMS_JWKS_URL:
+    if hasattr(settings, "AXIOMS_JWKS_URL") and settings.AXIOMS_JWKS_URL:
         return settings.AXIOMS_JWKS_URL
 
     # Construct from issuer URL
@@ -177,9 +186,9 @@ def get_jwks_url():
         return f"{issuer_url}/.well-known/jwks.json"
 
     # Fallback to legacy AXIOMS_DOMAIN (for backward compatibility)
-    if hasattr(settings, 'AXIOMS_DOMAIN') and settings.AXIOMS_DOMAIN:
+    if hasattr(settings, "AXIOMS_DOMAIN") and settings.AXIOMS_DOMAIN:
         domain = settings.AXIOMS_DOMAIN
-        domain = domain.replace('https://', '').replace('http://', '')
+        domain = domain.replace("https://", "").replace("http://", "")
         return f"https://{domain}/.well-known/jwks.json"
 
     raise UnauthorizedAccess
