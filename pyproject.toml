@@ -99,6 +99,7 @@ python_functions = ["test_*"]
 DJANGO_SETTINGS_MODULE = "tests.settings"
 django_find_project = false
 pythonpath = ["."]
+addopts = "-v --cov=axioms_drf --cov-report=term-missing"
 
 [tool.ruff]
 line-length = 100
