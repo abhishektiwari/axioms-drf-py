@@ -78,7 +78,7 @@ docs = [
 
 [project.urls]
 Homepage = "https://github.com/abhishektiwari/axioms-drf-py"
-Documentation = "https://github.com/abhishektiwari/axioms-drf-py"
+Documentation = "https://axioms-drf-py.abhishek-tiwari.com/"
 Repository = "https://github.com/abhishektiwari/axioms-drf-py"
 Issues = "https://github.com/abhishektiwari/axioms-drf-py/issues"
 Changelog = "https://github.com/abhishektiwari/axioms-drf-py/releases"
