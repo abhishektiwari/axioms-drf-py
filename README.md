@@ -3,7 +3,7 @@ OAuth2/OIDC authentication and authorization for Django REST Framework APIs. Sup
 
 Works with access tokens issued by various authorization servers including [AWS Cognito](https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html), [Auth0](https://auth0.com/docs/secure/tokens/access-tokens/access-token-profiles), [Okta](https://developer.okta.com/docs/api/oauth2/), [Microsoft Entra](https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles), etc.
 
-> **📦 Using Flask or FastAPI?** This package is specifically for Django REST Framework. For Flask applications, use [axioms-flask-py](https://github.com/abhishektiwari/axioms-flask-py). For FastAPI applications, use [axioms-fastapi-py](https://github.com/abhishektiwari/axioms-fastapi-py).
+> ** Using Flask or FastAPI?** This package is specifically for Django REST Framework. For Flask applications, use [axioms-flask-py](https://github.com/abhishektiwari/axioms-flask-py). For FastAPI applications, use [axioms-fastapi](https://github.com/abhishektiwari/axioms-fastapi).
 
 ![GitHub Release](https://img.shields.io/github/v/release/abhishektiwari/axioms-drf-py)
 ![GitHub Actions Test Workflow Status](https://img.shields.io/github/actions/workflow/status/abhishektiwari/axioms-drf-py/test.yml?label=tests)
