@@ -3,6 +3,8 @@ OAuth2/OIDC authentication and authorization for Django REST Framework APIs. Sup
 
 Works with access tokens issued by various authorization servers including [AWS Cognito](https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html), [Auth0](https://auth0.com/docs/secure/tokens/access-tokens/access-token-profiles), [Okta](https://developer.okta.com/docs/api/oauth2/), [Microsoft Entra](https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles), etc.
 
+> **📦 Using Flask or FastAPI?** This package is specifically for Django REST Framework. For Flask applications, use [axioms-flask-py](https://github.com/abhishektiwari/axioms-flask-py). For FastAPI applications, use [axioms-fastapi-py](https://github.com/abhishektiwari/axioms-fastapi-py).
+
 ![GitHub Release](https://img.shields.io/github/v/release/abhishektiwari/axioms-drf-py)
 ![GitHub Actions Test Workflow Status](https://img.shields.io/github/actions/workflow/status/abhishektiwari/axioms-drf-py/test.yml?label=tests)
 ![PyPI - Version](https://img.shields.io/pypi/v/axioms-drf-py)
@@ -157,6 +159,8 @@ class ProtectedView(APIView):
 | `HasAccessTokenRoles` | Check roles in `roles` claim of the access token. | `access_token_roles` or `access_token_any_roles` (OR logic)<br/>`access_token_all_roles` (AND logic) |
 | `HasAccessTokenPermissions` | Check permissions in `permissions` claim of the access token. | `access_token_permissions` or `access_token_any_permissions` (OR logic)<br/>`access_token_all_permissions` (AND logic) |
 
+> **Method-Level Authorization:** All permission classes support method-level authorization using Python's `@property` decorator. This allows you to define different authorization requirements for each HTTP method (GET, POST, PATCH, DELETE) on the same view. See the [Method-Level Permissions](#method-level-permissions) section for implementation details.
+
 ### OR vs AND Logic
 
 Permission classes support both **OR logic** (any claim) and **AND logic** (all claims) through different view attributes. You can also combine both for complex authorization requirements.
@@ -258,9 +262,9 @@ class SampleRoleView(APIView):
         return Response({'message': 'Sample deleted.'}, status=status.HTTP_204_NO_CONTENT)
 ```
 
-### Permission-Based Authorization
+### Method-Level Permissions
 
-Check permissions at the API method level:
+Check permissions at the API method level using properties:
 
 ```python
 from rest_framework.views import APIView
@@ -319,4 +323,4 @@ class PublicReadView(APIView):
 
 ## Complete Example
 
-For a complete working example, check out the [Django REST Framework sample application](https://github.com/axioms-io/sample-python-django-rest-framework) on GitHub.
+For a complete working example, check out the [Django REST Framework sample application](https://github.com/axioms-io/sample-python-drf) on GitHub.

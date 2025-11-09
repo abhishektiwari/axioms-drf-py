@@ -1,4 +1,4 @@
-.PHONY: help install install-dev clean format lint test build publish docs-build docs-server docs-watch
+.PHONY: help install install-dev clean format lint test build publish docs docs-build docs-server docs-watch
 
 help:
 	@echo "Available targets:"
@@ -10,8 +10,9 @@ help:
 	@echo "  build         - Build source and wheel distributions"
 	@echo "  clean         - Remove build artifacts and caches"
 	@echo "  publish       - Upload package to PyPI"
+	@echo "  docs          - Build documentation (alias for docs-build)"
 	@echo "  docs-build    - Build documentation with Sphinx"
-	@echo "  docs-server   - Serve documentation locally on http://localhost:8000"
+	@echo "  docs-server   - Serve documentation locally on http://localhost:8010"
 	@echo "  docs-watch    - Watch docs and rebuild on changes (requires sphinx-autobuild)"
 
 install:

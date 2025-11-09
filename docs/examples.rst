@@ -361,6 +361,87 @@ Combine different permission classes for complex authorization:
 
 This request will **succeed** because the token has both ``openid`` scope and ``editor`` role.
 
+Method-Level Permissions
+-------------------------
+
+Use properties to define different permissions for each HTTP method on the same view:
+
+.. code-block:: python
+
+   from rest_framework.views import APIView
+   from rest_framework.response import Response
+   from rest_framework import status
+   from axioms_drf.authentication import HasValidAccessToken
+   from axioms_drf.permissions import HasAccessTokenPermissions
+
+   class MethodLevelPermissionView(APIView):
+       authentication_classes = [HasValidAccessToken]
+       permission_classes = [HasAccessTokenPermissions]
+
+       @property
+       def access_token_permissions(self):
+           method_permissions = {
+               'GET': ['sample:read'],
+               'POST': ['sample:create'],
+               'PATCH': ['sample:update'],
+               'DELETE': ['sample:delete']
+           }
+           return method_permissions[self.request.method]
+
+       def get(self, request):
+           return Response({'message': 'Sample read.'}, status=status.HTTP_200_OK)
+
+       def post(self, request):
+           return Response({'message': 'Sample created.'}, status=status.HTTP_201_CREATED)
+
+       def patch(self, request):
+           return Response({'message': 'Sample updated.'}, status=status.HTTP_200_OK)
+
+       def delete(self, request):
+           return Response({'message': 'Sample deleted.'}, status=status.HTTP_204_NO_CONTENT)
+
+**Example JWT Token Payload for GET (Success):**
+
+.. code-block:: json
+
+   {
+     "sub": "user123",
+     "aud": "your-api-audience",
+     "permissions": ["sample:read"],
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+This GET request will **succeed** because the token contains ``sample:read`` permission.
+
+**Example JWT Token Payload for POST (Success):**
+
+.. code-block:: json
+
+   {
+     "sub": "user123",
+     "aud": "your-api-audience",
+     "permissions": ["sample:create"],
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+This POST request will **succeed** because the token contains ``sample:create`` permission.
+
+**Example JWT Token Payload (Failure):**
+
+.. code-block:: json
+
+   {
+     "sub": "user123",
+     "aud": "your-api-audience",
+     "permissions": ["sample:create"],
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+This GET request will **fail** with 403 Forbidden because the token has ``sample:create`` permission but GET requires ``sample:read``.
+
 Public Endpoints
 -----------------
 

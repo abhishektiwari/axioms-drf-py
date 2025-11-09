@@ -1,3 +1,4 @@
-/* Custom CSS for axioms-drf-py documentation */
-
-/* Add custom styles here as needed */
+/* Custom styles for axioms-fastapi documentation */
+a.image-reference {
+    text-decoration: none;
+}

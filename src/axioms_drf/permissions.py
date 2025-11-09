@@ -175,14 +175,17 @@ def get_token_permissions(auth_jwt):
 class HasAccessTokenScopes(BasePermission):
     """Permission class that checks if user has required scopes.
 
-    Supports both OR logic (any scope) and AND logic (all scopes) through different attributes:
-    - ``access_token_scopes`` or ``access_token_any_scopes``: User needs ANY ONE (OR logic)
+    Supports both OR logic (any scope) and AND logic (all scopes) through different
+    view attributes:
+
+    - ``access_token_scopes`` or ``access_token_any_scopes``: User needs ANY ONE
+      (OR logic)
     - ``access_token_all_scopes``: User needs ALL (AND logic)
 
     Attributes:
-        ``access_token_scopes``: List of scopes (OR logic, backward compatible).
-        ``access_token_any_scopes``: List of scopes (OR logic, explicit).
-        ``access_token_all_scopes``: List of scopes (AND logic).
+        access_token_scopes: List of scopes (OR logic, backward compatible).
+        access_token_any_scopes: List of scopes (OR logic, explicit).
+        access_token_all_scopes: List of scopes (AND logic).
 
     Example::
 
@@ -197,6 +200,26 @@ class HasAccessTokenScopes(BasePermission):
             authentication_classes = [HasValidAccessToken]
             permission_classes = [HasAccessTokenScopes]
             access_token_all_scopes = ['read:data', 'write:data']
+
+        # Method-level scopes - different scopes for each HTTP method
+        class MethodLevelView(APIView):
+            authentication_classes = [HasValidAccessToken]
+            permission_classes = [HasAccessTokenScopes]
+
+            @property
+            def access_token_scopes(self):
+                method_scopes = {
+                    'GET': ['read:data'],
+                    'POST': ['write:data'],
+                    'DELETE': ['delete:data']
+                }
+                return method_scopes[self.request.method]
+
+            def get(self, request):
+                return Response({'data': []})
+
+            def post(self, request):
+                return Response({'status': 'created'})
 
     Raises:
         InsufficientPermission: If user doesn't have required scopes.
@@ -259,14 +282,17 @@ class HasAccessTokenScopes(BasePermission):
 class HasAccessTokenRoles(BasePermission):
     """Permission class that checks if user has required roles.
 
-    Supports both OR logic (any role) and AND logic (all roles) through different attributes:
-    - ``access_token_roles`` or ``access_token_any_roles``: User needs ANY ONE (OR logic)
+    Supports both OR logic (any role) and AND logic (all roles) through different
+    view attributes:
+
+    - ``access_token_roles`` or ``access_token_any_roles``: User needs ANY ONE
+      (OR logic)
     - ``access_token_all_roles``: User needs ALL (AND logic)
 
     Attributes:
-        ``access_token_roles``: List of roles (OR logic, backward compatible).
-        ``access_token_any_roles``: List of roles (OR logic, explicit).
-        ``access_token_all_roles``: List of roles (AND logic).
+        access_token_roles: List of roles (OR logic, backward compatible).
+        access_token_any_roles: List of roles (OR logic, explicit).
+        access_token_all_roles: List of roles (AND logic).
 
     Example::
 
@@ -281,6 +307,26 @@ class HasAccessTokenRoles(BasePermission):
             authentication_classes = [HasValidAccessToken]
             permission_classes = [HasAccessTokenRoles]
             access_token_all_roles = ['admin', 'superuser']
+
+        # Method-level roles - different roles for each HTTP method
+        class MethodLevelView(APIView):
+            authentication_classes = [HasValidAccessToken]
+            permission_classes = [HasAccessTokenRoles]
+
+            @property
+            def access_token_roles(self):
+                method_roles = {
+                    'GET': ['viewer', 'editor'],
+                    'POST': ['editor', 'admin'],
+                    'DELETE': ['admin']
+                }
+                return method_roles[self.request.method]
+
+            def get(self, request):
+                return Response({'data': []})
+
+            def post(self, request):
+                return Response({'status': 'created'})
 
     Raises:
         InsufficientPermission: If user doesn't have required roles.
@@ -344,15 +390,16 @@ class HasAccessTokenPermissions(BasePermission):
     """Permission class that checks if user has required permissions.
 
     Supports both OR logic (any permission) and AND logic (all permissions)
-    through different attributes:
+    through different view attributes:
+
     - ``access_token_permissions`` or ``access_token_any_permissions``:
       User needs ANY ONE (OR logic)
     - ``access_token_all_permissions``: User needs ALL (AND logic)
 
     Attributes:
-        ``access_token_permissions``: List of permissions (OR logic, backward compatible).
-        ``access_token_any_permissions``: List of permissions (OR logic, explicit).
-        ``access_token_all_permissions``: List of permissions (AND logic).
+        access_token_permissions: List of permissions (OR logic, backward compatible).
+        access_token_any_permissions: List of permissions (OR logic, explicit).
+        access_token_all_permissions: List of permissions (AND logic).
 
     Example::
 
@@ -367,6 +414,27 @@ class HasAccessTokenPermissions(BasePermission):
             authentication_classes = [HasValidAccessToken]
             permission_classes = [HasAccessTokenPermissions]
             access_token_all_permissions = ['user:write', 'user:delete']
+
+        # Method-level permissions - different permission for each HTTP method
+        class MethodLevelView(APIView):
+            authentication_classes = [HasValidAccessToken]
+            permission_classes = [HasAccessTokenPermissions]
+
+            @property
+            def access_token_permissions(self):
+                method_permissions = {
+                    'GET': ['user:read'],
+                    'POST': ['user:create'],
+                    'PATCH': ['user:update'],
+                    'DELETE': ['user:delete']
+                }
+                return method_permissions[self.request.method]
+
+            def get(self, request):
+                return Response({'message': 'User read.'})
+
+            def post(self, request):
+                return Response({'message': 'User created.'})
 
     Raises:
         InsufficientPermission: If user doesn't have required permissions.

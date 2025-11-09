@@ -120,6 +120,34 @@ class PermissionDeleteAPIView(APIView):
         return Response({'message': 'Sample deleted.'}, status=status.HTTP_200_OK)
 
 
+class MethodLevelPermissionAPIView(APIView):
+    """API view with method-level permissions using property."""
+    authentication_classes = [HasValidAccessToken]
+    permission_classes = [HasAccessTokenPermissions]
+
+    @property
+    def access_token_permissions(self):
+        method_permissions = {
+            'GET': ['sample:read'],
+            'POST': ['sample:create'],
+            'PATCH': ['sample:update'],
+            'DELETE': ['sample:delete']
+        }
+        return method_permissions[self.request.method]
+
+    def get(self, request):
+        return Response({'message': 'Sample read.'}, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        return Response({'message': 'Sample created.'}, status=status.HTTP_201_CREATED)
+
+    def patch(self, request):
+        return Response({'message': 'Sample updated.'}, status=status.HTTP_200_OK)
+
+    def delete(self, request):
+        return Response({'message': 'Sample deleted.'}, status=status.HTTP_204_NO_CONTENT)
+
+
 class AllScopesAPIView(APIView):
     """API view requiring multiple scopes (AND logic)."""
     authentication_classes = [HasValidAccessToken]
@@ -484,6 +512,94 @@ class TestPermissionAuthorization:
         request = factory.get('/permission/read', HTTP_AUTHORIZATION=f'Bearer {token}')
         response = view(request)
         assert response.status_code == 401
+
+    def test_method_level_permission_get(self, factory, test_key):
+        """Test GET method with method-level permissions."""
+        now = int(time.time())
+        claims = json.dumps({
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'permissions': ['sample:read'],
+            'exp': now + 3600,
+            'iat': now
+        })
+
+        token = generate_jwt_token(test_key, claims)
+        view = MethodLevelPermissionAPIView.as_view()
+        request = factory.get('/method-permission', HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = view(request)
+        assert response.status_code == 200
+        assert response.data['message'] == 'Sample read.'
+
+    def test_method_level_permission_post(self, factory, test_key):
+        """Test POST method with method-level permissions."""
+        now = int(time.time())
+        claims = json.dumps({
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'permissions': ['sample:create'],
+            'exp': now + 3600,
+            'iat': now
+        })
+
+        token = generate_jwt_token(test_key, claims)
+        view = MethodLevelPermissionAPIView.as_view()
+        request = factory.post('/method-permission', HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = view(request)
+        assert response.status_code == 201
+        assert response.data['message'] == 'Sample created.'
+
+    def test_method_level_permission_patch(self, factory, test_key):
+        """Test PATCH method with method-level permissions."""
+        now = int(time.time())
+        claims = json.dumps({
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'permissions': ['sample:update'],
+            'exp': now + 3600,
+            'iat': now
+        })
+
+        token = generate_jwt_token(test_key, claims)
+        view = MethodLevelPermissionAPIView.as_view()
+        request = factory.patch('/method-permission', HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = view(request)
+        assert response.status_code == 200
+        assert response.data['message'] == 'Sample updated.'
+
+    def test_method_level_permission_delete(self, factory, test_key):
+        """Test DELETE method with method-level permissions."""
+        now = int(time.time())
+        claims = json.dumps({
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'permissions': ['sample:delete'],
+            'exp': now + 3600,
+            'iat': now
+        })
+
+        token = generate_jwt_token(test_key, claims)
+        view = MethodLevelPermissionAPIView.as_view()
+        request = factory.delete('/method-permission', HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = view(request)
+        assert response.status_code == 204
+
+    def test_method_level_permission_wrong_permission_for_method(self, factory, test_key):
+        """Test that GET with create permission fails."""
+        now = int(time.time())
+        claims = json.dumps({
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'permissions': ['sample:create'],  # Has create but trying GET which needs read
+            'exp': now + 3600,
+            'iat': now
+        })
+
+        token = generate_jwt_token(test_key, claims)
+        view = MethodLevelPermissionAPIView.as_view()
+        request = factory.get('/method-permission', HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = view(request)
+        assert response.status_code == 403
 
 
 class TestMultipleMethodsEndpoint:

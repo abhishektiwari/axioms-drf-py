@@ -5,6 +5,9 @@ OAuth2/OIDC authentication and authorization for Django REST Framework APIs. Sup
 
 Works with access tokens issued by various authorization servers including `AWS Cognito <https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html>`_, `Auth0 <https://auth0.com/docs/secure/tokens/access-tokens/access-token-profiles>`_, `Okta <https://developer.okta.com/docs/api/oauth2/>`_, `Microsoft Entra <https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles>`_, etc.
 
+.. note::
+   **Using Flask or FastAPI?** This package is specifically for Django REST Framework. For Flask applications, use `axioms-flask-py <https://github.com/abhishektiwari/axioms-flask-py>`_. For FastAPI applications, use `axioms-fastapi-py <https://github.com/abhishektiwari/axioms-fastapi-py>`_.
+
 .. image:: https://img.shields.io/github/v/release/abhishektiwari/axioms-drf-py
    :alt: GitHub Release
    :target: https://github.com/abhishektiwari/axioms-drf-py/releases
@@ -171,6 +174,12 @@ Permission Classes
    * - ``HasAccessTokenPermissions``
      - Check permissions in ``permissions`` claim of the access token. Should be used with authentication class.
      - ``access_token_permissions`` or ``access_token_any_permissions`` (OR logic), ``access_token_all_permissions`` (AND logic)
+
+.. note::
+   **Method-Level Authorization:** All permission classes support method-level authorization
+   using Python's ``@property`` decorator. This allows you to define different authorization
+   requirements for each HTTP method (GET, POST, PATCH, DELETE) on the same view. See the
+   examples section for implementation details.
 
 OR vs AND Logic
 ^^^^^^^^^^^^^^^
