@@ -61,6 +61,14 @@ class PrivateAPIView(APIView):
         return Response({'message': 'Private endpoint - authenticated'}, status=status.HTTP_200_OK)
 
 
+class AuthOnlyAPIView(APIView):
+    """API view with only authentication, no authorization/permissions."""
+    authentication_classes = [HasValidAccessToken]
+
+    def get(self, request):
+        return Response({'message': 'Authentication-only endpoint'}, status=status.HTTP_200_OK)
+
+
 class RoleAPIView(APIView):
     """API view with role-based authorization."""
     authentication_classes = [HasValidAccessToken]
@@ -227,6 +235,7 @@ class TestAuthentication:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'scope': 'openid profile email',
             'exp': now + 3600,
             'iat': now
@@ -245,6 +254,7 @@ class TestAuthentication:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'scope': 'openid profile email',
             'exp': now - 3600,  # Expired 1 hour ago
             'iat': now - 7200
@@ -262,6 +272,7 @@ class TestAuthentication:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['wrong-audience'],
+            'iss': 'https://test-domain.com',
             'scope': 'openid profile email',
             'exp': now + 3600,
             'iat': now
@@ -273,6 +284,33 @@ class TestAuthentication:
         response = view(request)
         assert response.status_code == 401
 
+    @override_settings(AXIOMS_SAFE_METHODS=('HEAD', 'OPTIONS', 'GET'))
+    def test_custom_safe_methods(self, factory):
+        """Test that custom AXIOMS_SAFE_METHODS configuration works."""
+        view = AuthOnlyAPIView.as_view()
+        # GET should be allowed without authentication when configured as safe method
+        request = factory.get('/auth-only')
+        response = view(request)
+        # Should succeed because GET is in AXIOMS_SAFE_METHODS
+        assert response.status_code == 200
+        assert response.data['message'] == 'Authentication-only endpoint'
+
+    def test_options_method_allowed(self, factory):
+        """Test that OPTIONS method is allowed without authentication (default)."""
+        view = AuthOnlyAPIView.as_view()
+        request = factory.options('/auth-only')
+        response = view(request)
+        # Should succeed because OPTIONS is in default AXIOMS_SAFE_METHODS
+        assert response.status_code == 200
+
+    def test_head_method_allowed(self, factory):
+        """Test that HEAD method is allowed without authentication (default)."""
+        view = AuthOnlyAPIView.as_view()
+        request = factory.head('/auth-only')
+        response = view(request)
+        # Should succeed because HEAD is in default AXIOMS_SAFE_METHODS
+        assert response.status_code == 200
+
 
 class TestScopeAuthorization:
     """Test scope-based authorization."""
@@ -283,6 +321,7 @@ class TestScopeAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'scope': 'openid profile email',
             'exp': now + 3600,
             'iat': now
@@ -300,6 +339,7 @@ class TestScopeAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'scope': 'email',  # Missing 'openid' and 'profile'
             'exp': now + 3600,
             'iat': now
@@ -321,6 +361,7 @@ class TestRoleAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'roles': ['admin', 'viewer'],
             'exp': now + 3600,
             'iat': now
@@ -339,6 +380,7 @@ class TestRoleAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'roles': ['viewer'],  # Missing 'admin' or 'editor'
             'exp': now + 3600,
             'iat': now
@@ -357,6 +399,7 @@ class TestRoleAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'https://test-domain.com/claims/roles': ['admin'],
             'exp': now + 3600,
             'iat': now
@@ -374,6 +417,7 @@ class TestRoleAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'roles': ['admin'],  # Has required role but token is expired
             'exp': now - 3600,  # Expired 1 hour ago
             'iat': now - 7200
@@ -395,6 +439,7 @@ class TestPermissionAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'permissions': ['sample:create', 'sample:read'],
             'exp': now + 3600,
             'iat': now
@@ -413,6 +458,7 @@ class TestPermissionAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'permissions': ['sample:read'],  # Missing 'sample:create'
             'exp': now + 3600,
             'iat': now
@@ -430,6 +476,7 @@ class TestPermissionAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'permissions': ['sample:update'],
             'exp': now + 3600,
             'iat': now
@@ -448,6 +495,7 @@ class TestPermissionAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'permissions': ['sample:read'],
             'exp': now + 3600,
             'iat': now
@@ -466,6 +514,7 @@ class TestPermissionAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'permissions': ['sample:delete'],
             'exp': now + 3600,
             'iat': now
@@ -485,6 +534,7 @@ class TestPermissionAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'https://test-domain.com/claims/permissions': ['sample:read'],
             'exp': now + 3600,
             'iat': now
@@ -502,6 +552,7 @@ class TestPermissionAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'permissions': ['sample:read'],  # Has required permission but token is expired
             'exp': now - 3600,  # Expired 1 hour ago
             'iat': now - 7200
@@ -519,6 +570,7 @@ class TestPermissionAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'permissions': ['sample:read'],
             'exp': now + 3600,
             'iat': now
@@ -537,6 +589,7 @@ class TestPermissionAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'permissions': ['sample:create'],
             'exp': now + 3600,
             'iat': now
@@ -555,6 +608,7 @@ class TestPermissionAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'permissions': ['sample:update'],
             'exp': now + 3600,
             'iat': now
@@ -573,6 +627,7 @@ class TestPermissionAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'permissions': ['sample:delete'],
             'exp': now + 3600,
             'iat': now
@@ -590,6 +645,7 @@ class TestPermissionAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'permissions': ['sample:create'],  # Has create but trying GET which needs read
             'exp': now + 3600,
             'iat': now
@@ -611,6 +667,7 @@ class TestMultipleMethodsEndpoint:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'roles': ['editor'],
             'exp': now + 3600,
             'iat': now
@@ -633,6 +690,7 @@ class TestANDLogicAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'scope': 'read:resource write:resource other:scope',
             'exp': now + 3600,
             'iat': now
@@ -651,6 +709,7 @@ class TestANDLogicAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'scope': 'read:resource other:scope',  # Missing write:resource
             'exp': now + 3600,
             'iat': now
@@ -668,6 +727,7 @@ class TestANDLogicAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'scope': 'other:scope',  # Missing both read:resource and write:resource
             'exp': now + 3600,
             'iat': now
@@ -685,6 +745,7 @@ class TestANDLogicAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'roles': ['admin', 'superuser', 'viewer'],
             'exp': now + 3600,
             'iat': now
@@ -703,6 +764,7 @@ class TestANDLogicAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'roles': ['admin', 'viewer'],  # Missing superuser
             'exp': now + 3600,
             'iat': now
@@ -720,6 +782,7 @@ class TestANDLogicAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'permissions': ['sample:create', 'sample:delete', 'sample:read'],
             'exp': now + 3600,
             'iat': now
@@ -738,6 +801,7 @@ class TestANDLogicAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'permissions': ['sample:create', 'sample:read'],  # Missing sample:delete
             'exp': now + 3600,
             'iat': now
@@ -755,6 +819,7 @@ class TestANDLogicAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'scope': 'openid profile email',
             'roles': ['editor', 'viewer'],
             'permissions': ['sample:read', 'sample:write'],
@@ -775,6 +840,7 @@ class TestANDLogicAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'scope': 'profile email',  # Missing openid
             'roles': ['editor'],
             'permissions': ['sample:read'],
@@ -794,6 +860,7 @@ class TestANDLogicAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'scope': 'openid profile',
             'roles': ['viewer'],  # Missing editor
             'permissions': ['sample:read'],
@@ -813,6 +880,7 @@ class TestANDLogicAuthorization:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'scope': 'openid profile',
             'roles': ['editor'],
             'permissions': ['sample:write'],  # Missing sample:read

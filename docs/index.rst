@@ -43,6 +43,7 @@ Features
 * Issuer validation (``iss`` claim) to prevent token substitution attacks
 * Authentication classes for standard DRF integration
 * Permission classes for claim-based authorization: scopes, roles, and permissions
+* Object-level permission classes for resource ownership verification
 * Support for both OR and AND logic in authorization checks
 * Middleware for automatic token extraction and validation
 * Flexible configuration with support for custom JWKS and issuer URLs
@@ -76,11 +77,13 @@ Quick Start
 
    # Required settings
    AXIOMS_AUDIENCE = 'your-api-audience'
-   AXIOMS_DOMAIN = 'your-auth.domain.com'  # Simplest option - constructs issuer and JWKS URLs
 
-   # OR for custom configurations:
-   # AXIOMS_ISS_URL = 'https://your-auth.domain.com/oauth2'
-   # AXIOMS_JWKS_URL = 'https://your-auth.domain.com/.well-known/jwks.json'
+   # Set Issuer and JWKS URLs directly (optional, but recommended for security)
+   AXIOMS_ISS_URL = 'https://your-auth.domain.com'
+   AXIOMS_JWKS_URL = 'https://your-auth.domain.com/.well-known/jwks.json'
+
+   # Optionally, you can set the auth domain and let the SDK construct the URLs
+   # AXIOMS_DOMAIN = 'your-auth.domain.com'
 
 3. Use authentication and permission classes in your views:
 
@@ -158,6 +161,9 @@ Authentication Classes
 Permission Classes
 ^^^^^^^^^^^^^^^^^^
 
+Claim-Based Permissions
+"""""""""""""""""""""""
+
 .. list-table::
    :header-rows: 1
    :widths: 30 50 20
@@ -176,10 +182,27 @@ Permission Classes
      - ``access_token_permissions`` or ``access_token_any_permissions`` (OR logic), ``access_token_all_permissions`` (AND logic)
 
 .. note::
-   **Method-Level Authorization:** All permission classes support method-level authorization
+   **Method-Level Authorization:** All claim-based permission classes support method-level authorization
    using Python's ``@property`` decorator. This allows you to define different authorization
    requirements for each HTTP method (GET, POST, PATCH, DELETE) on the same view. See the
    examples section for implementation details.
+
+Object-Level Permissions
+""""""""""""""""""""""""
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 50 20
+
+   * - Permission Class
+     - Description
+     - View Attributes
+   * - ``IsSubOwner``
+     - Verifies that the token's ``sub`` claim matches a specified attribute on the object. Use for owner-only resource access.
+     - ``owner_attribute`` - Name of the object attribute to compare with ``sub`` claim (default: ``'user'``)
+   * - ``IsSubOwnerOrSafeOnly``
+     - Allows safe methods (GET, HEAD, OPTIONS) for all authenticated users, restricts unsafe methods (POST, PUT, PATCH, DELETE) to owners only.
+     - ``owner_attribute`` - Name of the object attribute (default: ``'user'``), ``safe_methods`` - Tuple of safe HTTP methods (default: ``('GET', 'HEAD', 'OPTIONS')``)
 
 OR vs AND Logic
 ^^^^^^^^^^^^^^^
@@ -257,6 +280,7 @@ Contents
    :caption: Documentation:
 
    examples
+   issuers
    api
 
 Indices and tables

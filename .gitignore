@@ -74,3 +74,5 @@ dmypy.json
 .ruff_cache/
 
 docs/_build
+
+db.sqlite3

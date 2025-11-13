@@ -4,18 +4,19 @@ This module provides helper functions for JWT token validation with support for
 algorithm validation, issuer validation, and configuration hierarchy.
 """
 
-import json
+import logging
 import ssl
-import time
 from urllib.request import urlopen
 
 import jwt
 from box import Box
 from django.conf import settings
 from django.core.cache import cache
-from jwcrypto import jwk, jws
+from jwcrypto import jwk
 
 from .authentication import UnauthorizedAccess
+
+logger = logging.getLogger(__name__)
 
 # Allowed JWT algorithms (secure asymmetric algorithms only)
 ALLOWED_ALGORITHMS = frozenset(
@@ -66,11 +67,12 @@ def has_valid_token(token):
     key = get_key_from_jwks_json(jwks_url, kid)
 
     # Validate token with algorithm check
-    payload = check_token_validity(token, key, alg)
-    if payload:
+    try:
+        payload = check_token_validity(token, key, alg)
         return payload
-    else:
-        raise UnauthorizedAccess
+    except UnauthorizedAccess:
+        # Re-raise authentication errors from token validation
+        raise
 
 
 def check_token_validity(token, key, alg):
@@ -79,61 +81,63 @@ def check_token_validity(token, key, alg):
     Args:
         token: JWT token string.
         key: JWK key for verification.
-        alg: Algorithm from token header.
+        alg: Algorithm from token header (already validated against ALLOWED_ALGORITHMS).
 
     Returns:
-        Box: Validated payload or False.
+        Box: Validated payload.
+
+    Raises:
+        UnauthorizedAccess: If token validation fails.
     """
-    payload = get_payload_from_token(token, key, alg)
-    if not payload:
-        return False
-
-    now = time.time()
-
-    # Check expiry
-    if now > payload.exp:
-        return False
-
-    # Check audience
-    if settings.AXIOMS_AUDIENCE not in payload.aud:
-        return False
-
-    # Check issuer if configured
-    expected_issuer = get_expected_issuer()
-    if expected_issuer:
-        token_issuer = getattr(payload, "iss", None)
-        if not token_issuer:
-            raise UnauthorizedAccess
-        if token_issuer != expected_issuer:
-            raise UnauthorizedAccess
-
-    return payload
-
-
-def get_payload_from_token(token, key, alg):
-    """Extract and verify payload from JWT token.
-
-    Args:
-        token: JWT token string.
-        key: JWK key for verification.
-        alg: Expected algorithm.
-
-    Returns:
-        Box: Token payload or None.
-    """
-    jwstoken = jws.JWS()
-    jwstoken.deserialize(token)
-
-    # Verify algorithm matches
-    token_alg = jwstoken.jose_header.get("alg")
-    if token_alg != alg or token_alg not in ALLOWED_ALGORITHMS:
-        return None
-
     try:
-        jwstoken.verify(key)
-        return Box(json.loads(jwstoken.payload))
-    except jws.InvalidJWSSignature:
-        return None
+        # Convert JWK to PyJWT-compatible key
+        key_json = key.export_public()
+        algorithm = jwt.algorithms.get_default_algorithms()[alg]
+        pyjwt_key = algorithm.from_jwk(key_json)
+
+        # Build decode options
+        options = {
+            "verify_signature": True,
+            "verify_exp": True,
+            "verify_aud": True,
+            "verify_iss": False,  # We'll handle this conditionally
+            "verify_iat": True,
+            "verify_nbf": True,
+            "require_exp": True,
+        }
+
+        # Get expected issuer if configured
+        expected_issuer = get_expected_issuer()
+        if expected_issuer:
+            options["verify_iss"] = True
+
+        # Decode and verify token
+        # Use ALLOWED_ALGORITHMS for defense-in-depth against algorithm confusion attacks
+        payload = jwt.decode(
+            token,
+            pyjwt_key,
+            algorithms=list(ALLOWED_ALGORITHMS),
+            audience=settings.AXIOMS_AUDIENCE,
+            issuer=expected_issuer,
+            options=options,
+        )
+
+        return Box(payload)
+
+    except jwt.ExpiredSignatureError:
+        raise UnauthorizedAccess
+    except jwt.InvalidAudienceError:
+        raise UnauthorizedAccess
+    except jwt.InvalidIssuerError:
+        raise UnauthorizedAccess
+    except jwt.InvalidSignatureError:
+        raise UnauthorizedAccess
+    except jwt.DecodeError:
+        raise UnauthorizedAccess
+    except jwt.InvalidTokenError:
+        raise UnauthorizedAccess
+    except Exception:
+        raise UnauthorizedAccess
 
 
 def get_expected_issuer():
@@ -192,6 +196,115 @@ def get_jwks_url():
         return f"https://{domain}/.well-known/jwks.json"
 
     raise UnauthorizedAccess
+
+
+def get_token_scopes(auth_jwt):
+    """Extract scopes from token using standard or configured claim names.
+
+    Checks the ``scope`` claim first, then any custom claims configured in
+    ``AXIOMS_SCOPE_CLAIMS`` setting. Supports both string and list formats.
+
+    Args:
+        auth_jwt: Authenticated JWT token payload (Box object).
+
+    Returns:
+        str: Space-separated scope string from token, or empty string if not found.
+
+    Example::
+
+        # Standard scope claim
+        token = {'scope': 'read:data write:data'}
+        scopes = get_token_scopes(token)  # Returns: 'read:data write:data'
+
+        # Custom scope claim (list format)
+        token = {'scp': ['read:data', 'write:data']}
+        scopes = get_token_scopes(token)  # Returns: 'read:data write:data'
+    """
+    # Try standard 'scope' claim first
+    if hasattr(auth_jwt, "scope"):
+        return getattr(auth_jwt, "scope", "")
+
+    # Then try configured claims if AXIOMS_SCOPE_CLAIMS is set
+    if hasattr(settings, "AXIOMS_SCOPE_CLAIMS"):
+        for claim_name in settings.AXIOMS_SCOPE_CLAIMS:
+            if hasattr(auth_jwt, claim_name):
+                scope_value = getattr(auth_jwt, claim_name, "")
+                # Handle both string and list formats
+                if isinstance(scope_value, list):
+                    return " ".join(scope_value)
+                return scope_value
+
+    return ""
+
+
+def get_token_roles(auth_jwt):
+    """Extract roles from token using standard or configured claim names.
+
+    Checks the ``roles`` claim first, then any custom claims configured in
+    ``AXIOMS_ROLES_CLAIMS`` setting.
+
+    Args:
+        auth_jwt: Authenticated JWT token payload (Box object).
+
+    Returns:
+        list: List of roles from token, or empty list if not found.
+
+    Example::
+
+        # Standard roles claim
+        token = {'roles': ['admin', 'editor']}
+        roles = get_token_roles(token)  # Returns: ['admin', 'editor']
+
+        # Custom namespaced roles claim
+        token = {'https://example.com/roles': ['admin']}
+        roles = get_token_roles(token)  # Returns: ['admin']
+    """
+    # Try standard 'roles' claim first
+    if hasattr(auth_jwt, "roles"):
+        return getattr(auth_jwt, "roles", [])
+
+    # Then try configured claims if AXIOMS_ROLES_CLAIMS is set
+    if hasattr(settings, "AXIOMS_ROLES_CLAIMS"):
+        for claim_name in settings.AXIOMS_ROLES_CLAIMS:
+            if hasattr(auth_jwt, claim_name):
+                return getattr(auth_jwt, claim_name, [])
+
+    return []
+
+
+def get_token_permissions(auth_jwt):
+    """Extract permissions from token using standard or configured claim names.
+
+    Checks the ``permissions`` claim first, then any custom claims configured in
+    ``AXIOMS_PERMISSIONS_CLAIMS`` setting.
+
+    Args:
+        auth_jwt: Authenticated JWT token payload (Box object).
+
+    Returns:
+        list: List of permissions from token, or empty list if not found.
+
+    Example::
+
+        # Standard permissions claim
+        token = {'permissions': ['read:users', 'write:users']}
+        perms = get_token_permissions(token)  # Returns: ['read:users', 'write:users']
+
+        # Custom namespaced permissions claim
+        token = {'https://example.com/permissions': ['read:users']}
+        perms = get_token_permissions(token)  # Returns: ['read:users']
+    """
+    # Try standard 'permissions' claim first
+    if hasattr(auth_jwt, "permissions"):
+        return getattr(auth_jwt, "permissions", [])
+
+    # Then try configured claims if AXIOMS_PERMISSIONS_CLAIMS is set
+    if hasattr(settings, "AXIOMS_PERMISSIONS_CLAIMS"):
+        for claim_name in settings.AXIOMS_PERMISSIONS_CLAIMS:
+            if hasattr(auth_jwt, claim_name):
+                return getattr(auth_jwt, claim_name, [])
+
+    return []
 
 
 def check_scopes(provided_scopes, required_scopes):
@@ -264,12 +377,13 @@ def get_key_from_jwks_json(jwks_url, kid):
     Raises:
         UnauthorizedAccess: If key cannot be retrieved.
     """
-    fetcher = CacheFetcher()
-    data = fetcher.fetch(jwks_url, 600)
     try:
+        fetcher = CacheFetcher()
+        data = fetcher.fetch(jwks_url, 600)
         key = jwk.JWKSet().from_json(data).get_key(kid)
         return key
     except Exception:
+        # Catch all errors: network errors, HTTP errors, invalid JWKS, missing key, etc.
         raise UnauthorizedAccess
 
 
@@ -285,12 +399,25 @@ class CacheFetcher:
 
         Returns:
             bytes: Fetched data.
+
+        Raises:
+            Exception: If URL cannot be fetched (network error, HTTP error, timeout, etc.).
         """
-        # Redis cache
+        # Check cache first
         cached = cache.get("jwks" + url)
         if cached:
             return cached
-        context = ssl._create_unverified_context()
-        data = urlopen(url, context=context).read()
-        cache.set("jwks" + url, data, timeout=max_age)
-        return data
+
+        # Fetch from URL with SSL context
+        try:
+            context = ssl._create_unverified_context()
+            data = urlopen(url, context=context).read()
+            cache.set("jwks" + url, data, timeout=max_age)
+            return data
+        except Exception as e:
+            # Log the error with details for debugging
+            logger.error(
+                f"Failed to fetch JWKS from {url}: {type(e).__name__}: {str(e)}"
+            )
+            # Re-raise to bubble up to middleware
+            raise

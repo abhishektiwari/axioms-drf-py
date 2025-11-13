@@ -12,4 +12,25 @@ except ImportError:
     # Version file doesn't exist yet (development mode without build)
     __version__ = "0.0.0.dev0"
 
-__all__ = ["__version__"]
+from .authentication import HasValidAccessToken
+from .permissions import (
+    HasAccessTokenPermissions,
+    HasAccessTokenRoles,
+    HasAccessTokenScopes,
+    InsufficientPermission,
+    IsSafeOnly,
+    IsSubOwner,
+    IsSubOwnerOrSafeOnly,
+)
+
+__all__ = [
+    "__version__",
+    "HasValidAccessToken",
+    "HasAccessTokenScopes",
+    "HasAccessTokenRoles",
+    "HasAccessTokenPermissions",
+    "IsSubOwner",
+    "IsSubOwnerOrSafeOnly",
+    "IsSafeOnly",
+    "InsufficientPermission",
+]

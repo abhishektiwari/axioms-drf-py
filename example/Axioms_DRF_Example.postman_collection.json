@@ -1,0 +1,1528 @@
+{
+	"info": {
+		"_postman_id": "axioms-drf-example-001",
+		"name": "Axioms DRF Example API",
+		"description": "Example Django REST Framework API demonstrating axioms-drf authentication and authorization patterns.\n\nTokens are automatically generated before each request using jwtforge.dev.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "jwtforge_url",
+			"value": "https://jwtforge.dev",
+			"type": "string",
+			"description": "JWTforge.dev base URL"
+		},
+		{
+			"key": "issuer",
+			"value": "https://jwtforge.dev",
+			"type": "string",
+			"description": "Token issuer (must match AXIOMS_ISS_URL)"
+		},
+		{
+			"key": "audience",
+			"value": "https://api.example.com",
+			"type": "string",
+			"description": "API audience claim (must match AXIOMS_AUDIENCE)"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "1. Public Endpoints",
+			"item": [
+				{
+					"name": "Public Endpoint",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/public",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"public"
+							]
+						},
+						"description": "Public endpoint - no authentication required."
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Authentication Only",
+			"item": [
+				{
+					"name": "Authenticated Endpoint",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token with basic claims (no scopes/roles/permissions)",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123'",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated successfully');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/authenticated",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"authenticated"
+							]
+						},
+						"description": "Requires valid JWT token - no specific scopes/roles/permissions needed."
+					}
+				},
+				{
+					"name": "Authenticated - No Token (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 401', function () {",
+									"    pm.response.to.have.status(401);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/authenticated",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"authenticated"
+							]
+						},
+						"description": "Should return 401 - missing Authorization header."
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Scope-Based Authorization",
+			"item": [
+				{
+					"name": "Scope Protected - Success",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token with read:messages scope",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123',",
+									"            scope: 'read:messages'",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated with scope: read:messages');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/scope-protected",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"scope-protected"
+							]
+						},
+						"description": "Requires 'read:messages' scope."
+					}
+				},
+				{
+					"name": "Multiple Scopes (OR)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token with read:messages scope (one of the required scopes)",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123',",
+									"            scope: 'read:messages'",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated with scope: read:messages');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/multiple-scopes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multiple-scopes"
+							]
+						},
+						"description": "Requires 'read:messages' OR 'read:data' scope (any one is sufficient)."
+					}
+				},
+				{
+					"name": "All Scopes (AND)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token with both required scopes",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123',",
+									"            scope: 'read:messages write:messages'",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated with scopes: read:messages write:messages');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/all-scopes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"all-scopes"
+							]
+						},
+						"description": "Requires 'read:messages' AND 'write:messages' scopes (all must be present)."
+					}
+				}
+			]
+		},
+		{
+			"name": "4. Role-Based Authorization",
+			"item": [
+				{
+					"name": "Role Protected - Success",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token with admin role",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123',",
+									"            roles: ['admin']",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated with role: admin');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/role-protected",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"role-protected"
+							]
+						},
+						"description": "Requires 'admin' OR 'editor' role."
+					}
+				},
+				{
+					"name": "All Roles (AND)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token with both required roles",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123',",
+									"            roles: ['admin', 'superuser']",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated with roles: admin, superuser');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/all-roles",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"all-roles"
+							]
+						},
+						"description": "Requires 'admin' AND 'superuser' roles (all must be present)."
+					}
+				}
+			]
+		},
+		{
+			"name": "5. Permission-Based Authorization",
+			"item": [
+				{
+					"name": "Permission Protected - Create",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token with create:articles permission",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123',",
+									"            permissions: ['create:articles']",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated with permission: create:articles');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 201', function () {",
+									"    pm.response.to.have.status(201);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/permission-protected",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"permission-protected"
+							]
+						},
+						"description": "Requires 'create:articles' permission."
+					}
+				},
+				{
+					"name": "Method-Level Permissions - GET",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token with read:articles permission",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123',",
+									"            permissions: ['read:articles']",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated with permission: read:articles');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/multiple-permissions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multiple-permissions"
+							]
+						},
+						"description": "GET requires 'read:articles' permission."
+					}
+				},
+				{
+					"name": "Method-Level Permissions - POST",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token with create:articles permission",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123',",
+									"            permissions: ['create:articles']",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated with permission: create:articles');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 201', function () {",
+									"    pm.response.to.have.status(201);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/multiple-permissions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multiple-permissions"
+							]
+						},
+						"description": "POST requires 'create:articles' permission."
+					}
+				},
+				{
+					"name": "Method-Level Permissions - PATCH",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token with update:articles permission",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123',",
+									"            permissions: ['update:articles']",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated with permission: update:articles');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/multiple-permissions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multiple-permissions"
+							]
+						},
+						"description": "PATCH requires 'update:articles' permission."
+					}
+				},
+				{
+					"name": "Method-Level Permissions - DELETE",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token with delete:articles permission",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123',",
+									"            permissions: ['delete:articles']",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated with permission: delete:articles');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 204', function () {",
+									"    pm.response.to.have.status(204);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/multiple-permissions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"multiple-permissions"
+							]
+						},
+						"description": "DELETE requires 'delete:articles' permission."
+					}
+				}
+			]
+		},
+		{
+			"name": "6. Mixed Authorization",
+			"item": [
+				{
+					"name": "Mixed Authorization - Success",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token with all required claims",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123',",
+									"            scope: 'openid',",
+									"            roles: ['admin'],",
+									"            permissions: ['manage:system']",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated with scope, role, and permission');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mixed-authorization",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mixed-authorization"
+							]
+						},
+						"description": "Requires 'openid' scope AND 'admin' role AND 'manage:system' permission."
+					}
+				}
+			]
+		},
+		{
+			"name": "7. Object-Level Permissions",
+			"item": [
+				{
+					"name": "List All Articles",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token for authenticated user",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123'",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated for user123');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/articles/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"articles",
+								""
+							]
+						},
+						"description": "List all articles - anyone can view."
+					}
+				},
+				{
+					"name": "Create Article",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token for authenticated user",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123'",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated for user123');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 201', function () {",
+									"    pm.response.to.have.status(201);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"My Article\",\n    \"content\": \"This is the content of my article.\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/articles/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"articles",
+								""
+							]
+						},
+						"description": "Create a new article. The author_sub is automatically set from the token's sub claim."
+					}
+				},
+				{
+					"name": "Get Article",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token for the owner (user123)",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123'",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated for user123 (owner)');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/articles/1/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"articles",
+								"1",
+								""
+							]
+						},
+						"description": "Get a specific article. Only the owner (matching sub claim) can access."
+					}
+				},
+				{
+					"name": "Update Article",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token for the owner (user123)",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123'",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated for user123 (owner)');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Updated Title\",\n    \"content\": \"Updated content.\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/articles/1/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"articles",
+								"1",
+								""
+							]
+						},
+						"description": "Update an article. Only the owner can update."
+					}
+				},
+				{
+					"name": "Update Article - Non-Owner (403)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token for a different user (NOT the owner)",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user456'",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated for user456 (NOT owner)');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 403', function () {",
+									"    pm.response.to.have.status(403);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Trying to update someone else's article\",\n    \"content\": \"This should fail with 403.\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/articles/1/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"articles",
+								"1",
+								""
+							]
+						},
+						"description": "Try to update an article as a non-owner. Should return 403 Forbidden."
+					}
+				},
+				{
+					"name": "Delete Article",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token for the owner (user123)",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123'",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated for user123 (owner)');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 204', function () {",
+									"    pm.response.to.have.status(204);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/articles/1/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"articles",
+								"1",
+								""
+							]
+						},
+						"description": "Delete an article. Only the owner can delete."
+					}
+				}
+			]
+		}
+	]
+}

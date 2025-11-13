@@ -4,6 +4,12 @@ This module provides authentication classes that integrate with Django REST Fram
 to validate OAuth2/OIDC JWT access tokens. It works in conjunction with the
 ``AccessTokenMiddleware`` to perform token validation.
 
+Configuration:
+    Configure safe HTTP methods that bypass authentication in Django settings::
+
+        # Optional: Configure safe HTTP methods (defaults to HEAD and OPTIONS)
+        AXIOMS_SAFE_METHODS = ('HEAD', 'OPTIONS', 'GET')
+
 Classes:
     ``HasValidAccessToken``: Main authentication class requiring valid JWT token.
     ``IsAccessTokenAuthenticated``: Alias for ``HasValidAccessToken``.
@@ -45,7 +51,8 @@ class HasValidAccessToken(authentication.BaseAuthentication):
     - The token has valid signature and claims
     - The token audience matches configured ``AXIOMS_AUDIENCE``
 
-    ``OPTIONS`` requests are always allowed without authentication to support CORS preflight.
+    Safe HTTP methods (HEAD, OPTIONS by default) are allowed without authentication
+    to support CORS preflight. Configure ``AXIOMS_SAFE_METHODS`` setting to customize.
 
     Raises:
         MissingAuthorizationHeader: If ``Authorization`` header is not present.
@@ -66,15 +73,16 @@ class HasValidAccessToken(authentication.BaseAuthentication):
         Returns:
             tuple: ``(user_identifier, True)`` if authentication succeeds, where
                   ``user_identifier`` is the subject claim from the token.
-            None: If no authentication is required (``OPTIONS`` request).
+            None: If no authentication is required (safe HTTP methods).
 
         Raises:
             MissingAuthorizationHeader: If ``Authorization`` header is missing.
             InvalidAuthorizationBearer: If Bearer format is invalid.
             UnauthorizedAccess: If token validation fails.
         """
-        # Allow OPTIONS request without access token
-        if request.method == "OPTIONS":
+        # Allow safe HTTP methods without access token (configurable, defaults to HEAD/OPTIONS)
+        safe_methods = getattr(settings, "AXIOMS_SAFE_METHODS", ("HEAD", "OPTIONS"))
+        if request.method in safe_methods:
             return (None, True)
         auth_jwt = request.auth_jwt
         missing_auth_header = request.missing_auth_header
