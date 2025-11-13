@@ -76,6 +76,7 @@ class TestAlgorithmValidation:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'scope': 'openid profile',
             'exp': now + 3600,
             'iat': now
@@ -92,6 +93,7 @@ class TestAlgorithmValidation:
         claims = {
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'scope': 'openid profile',
             'exp': now + 3600,
             'iat': now
@@ -108,6 +110,7 @@ class TestAlgorithmValidation:
         claims = {
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'scope': 'openid profile',
             'exp': now + 3600,
             'iat': now
@@ -131,6 +134,7 @@ class TestAlgorithmValidation:
         claims = {
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'scope': 'openid profile',
             'exp': now + 3600,
             'iat': now
@@ -153,6 +157,7 @@ class TestAlgorithmValidation:
         claims = json.dumps({
             'sub': 'user123',
             'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
             'scope': 'openid profile',
             'exp': now + 3600,
             'iat': now

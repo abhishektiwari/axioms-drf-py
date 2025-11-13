@@ -22,6 +22,7 @@ Works with access tokens issued by various authorization servers including [AWS 
 * Issuer validation (`iss` claim) to prevent token substitution attacks
 * Authentication classes for standard DRF integration
 * Permission classes for claim-based authorization: scopes, roles, and permissions
+* Object-level permission classes for resource ownership verification
 * Support for both OR and AND logic in authorization checks
 * Middleware for automatic token extraction and validation
 * Flexible configuration with support for custom JWKS and issuer URLs
@@ -83,11 +84,13 @@ Create a `.env` file in your project root:
 
 ```bash
 AXIOMS_AUDIENCE=your-api-audience
-AXIOMS_DOMAIN=your-auth.domain.com
 
-# OR for custom configurations:
-# AXIOMS_ISS_URL=https://your-auth.domain.com/oauth2
-# AXIOMS_JWKS_URL=https://your-auth.domain.com/.well-known/jwks.json
+# Set Issuer and JWKS URLs directly (optional, but recommended for security)
+AXIOMS_ISS_URL = 'https://your-auth.domain.com'
+AXIOMS_JWKS_URL = 'https://your-auth.domain.com/.well-known/jwks.json'
+
+# Optionally, you can set the auth domain and let the SDK construct the URLs
+# AXIOMS_DOMAIN = 'your-auth.domain.com'
 ```
 
 Then load in your `settings.py`:
@@ -101,10 +104,11 @@ environ.Env.read_env()
 # Required
 AXIOMS_AUDIENCE = env('AXIOMS_AUDIENCE')
 
-# Optional - choose based on your auth server setup
-AXIOMS_DOMAIN = env('AXIOMS_DOMAIN', default=None)  # Simplest option
-# AXIOMS_ISS_URL = env('AXIOMS_ISS_URL', default=None)  # For custom issuer
-# AXIOMS_JWKS_URL = env('AXIOMS_JWKS_URL', default=None)  # For custom JWKS endpoint
+
+AXIOMS_ISS_URL = env('AXIOMS_ISS_URL', default=None)
+AXIOMS_JWKS_URL = env('AXIOMS_JWKS_URL', default=None)
+
+# AXIOMS_DOMAIN = env('AXIOMS_DOMAIN', default=None)
 ```
 
 #### Option B: Direct Configuration
@@ -114,11 +118,11 @@ Configure directly in your `settings.py`:
 ```python
 # Required settings
 AXIOMS_AUDIENCE = 'your-api-audience'
-AXIOMS_DOMAIN = 'your-auth.domain.com'  # Simplest option - constructs issuer and JWKS URLs
 
-# OR for custom configurations:
-# AXIOMS_ISS_URL = 'https://your-auth.domain.com/oauth2'
-# AXIOMS_JWKS_URL = 'https://your-auth.domain.com/.well-known/jwks.json'
+AXIOMS_ISS_URL = 'https://your-auth.domain.com'
+AXIOMS_JWKS_URL = 'https://your-auth.domain.com/.well-known/jwks.json'
+
+# AXIOMS_DOMAIN = 'your-auth.domain.com'  # Simplest option - constructs issuer and JWKS URLs
 ```
 
 ### 4. Use Authentication and Permission Classes
@@ -153,13 +157,22 @@ class ProtectedView(APIView):
 
 ### Permission Classes
 
+#### Claim-Based Permissions
+
 | Class | Description | View Attributes |
 | --- | --- | --- |
 | `HasAccessTokenScopes` | Check scopes in `scope` claim of the access token. | `access_token_scopes` or `access_token_any_scopes` (OR logic)<br/>`access_token_all_scopes` (AND logic) |
 | `HasAccessTokenRoles` | Check roles in `roles` claim of the access token. | `access_token_roles` or `access_token_any_roles` (OR logic)<br/>`access_token_all_roles` (AND logic) |
 | `HasAccessTokenPermissions` | Check permissions in `permissions` claim of the access token. | `access_token_permissions` or `access_token_any_permissions` (OR logic)<br/>`access_token_all_permissions` (AND logic) |
 
-> **Method-Level Authorization:** All permission classes support method-level authorization using Python's `@property` decorator. This allows you to define different authorization requirements for each HTTP method (GET, POST, PATCH, DELETE) on the same view. See the [Method-Level Permissions](#method-level-permissions) section for implementation details.
+> **Method-Level Authorization:** All claim-based permission classes support method-level authorization using Python's `@property` decorator. This allows you to define different authorization requirements for each HTTP method (GET, POST, PATCH, DELETE) on the same view. See the [Method-Level Permissions](#method-level-permissions) section for implementation details.
+
+#### Object-Level Permissions
+
+| Class | Description | View Attributes |
+| --- | --- | --- |
+| `IsSubOwner` | Verifies that the token's `sub` claim matches a specified attribute on the object. Use for owner-only resource access. | `owner_attribute` - Name of the object attribute to compare with `sub` claim (default: `'user'`) |
+| `IsSubOwnerOrSafeOnly` | Allows safe methods (GET, HEAD, OPTIONS) for all authenticated users, restricts unsafe methods (POST, PUT, PATCH, DELETE) to owners only. | `owner_attribute` - Name of the object attribute to compare with `sub` claim (default: `'user'`)<br/>`safe_methods` - Tuple of safe HTTP methods (default: `('GET', 'HEAD', 'OPTIONS')`) |
 
 ### OR vs AND Logic
 
@@ -321,6 +334,41 @@ class PublicReadView(APIView):
         return Response({'status': 'created'})
 ```
 
+### Object-Level Permissions
+
+Restrict access to resources based on ownership using the `sub` claim from the JWT token:
+
+```python
+from rest_framework import viewsets
+from axioms_drf.authentication import HasValidAccessToken
+from axioms_drf.permissions import IsSubOwner
+
+class ArticleViewSet(viewsets.ModelViewSet):
+    authentication_classes = [HasValidAccessToken]
+    permission_classes = [IsSubOwner]
+    owner_attribute = 'author_sub'  # Compare token sub with article.author_sub
+
+    def perform_create(self, serializer):
+        # Automatically set the author from the token's sub claim
+        serializer.save(author_sub=self.request.user)
+```
+
+Allow anyone to read, but only the owner can update or delete:
+
+```python
+from rest_framework import viewsets
+from axioms_drf.authentication import HasValidAccessToken
+from axioms_drf.permissions import IsSubOwnerOrSafeOnly
+
+class ArticleViewSet(viewsets.ModelViewSet):
+    authentication_classes = [HasValidAccessToken]
+    permission_classes = [IsSubOwnerOrSafeOnly]
+    owner_attribute = 'author_sub'  # Compare token sub with article.author_sub
+
+    def perform_create(self, serializer):
+        serializer.save(author_sub=self.request.user)
+```
+
 ## Complete Example
 
-For a complete working example, check out the [Django REST Framework sample application](https://github.com/axioms-io/sample-python-drf) on GitHub.
+For a complete working example, check out the [example/](example/) folder in this repository.

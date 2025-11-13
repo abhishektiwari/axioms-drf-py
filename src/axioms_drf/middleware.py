@@ -69,8 +69,9 @@ class AccessTokenMiddleware(MiddlewareMixin):
         AXIOMS_DOMAIN = 'auth.example.com'
 
     Raises:
-        Exception: If required settings (``AXIOMS_DOMAIN`` or ``AXIOMS_AUDIENCE``)
-            are not configured.
+        Exception: If required settings are not configured. ``AXIOMS_AUDIENCE`` is
+            always required. At least one JWKS source must be configured:
+            ``AXIOMS_JWKS_URL``, ``AXIOMS_ISS_URL``, or ``AXIOMS_DOMAIN``.
 
     Note:
         This middleware should be placed early in the middleware stack, before
@@ -95,7 +96,9 @@ class AccessTokenMiddleware(MiddlewareMixin):
             request: Django HttpRequest object.
 
         Raises:
-            Exception: If ``AXIOMS_DOMAIN`` or ``AXIOMS_AUDIENCE`` settings are not configured.
+            Exception: If ``AXIOMS_AUDIENCE`` is not configured or if none of the JWKS
+                source settings (``AXIOMS_JWKS_URL``, ``AXIOMS_ISS_URL``, or
+                ``AXIOMS_DOMAIN``) are configured.
 
         Returns:
             None: This method doesn't return anything, it modifies the request in-place.
@@ -106,14 +109,21 @@ class AccessTokenMiddleware(MiddlewareMixin):
         request.missing_auth_header = False
         request.invalid_bearer_token = False
 
-        try:
-            settings.AXIOMS_DOMAIN
-            settings.AXIOMS_AUDIENCE
-        except AttributeError as e:
+        # Validate required settings
+        if not hasattr(settings, 'AXIOMS_AUDIENCE') or not settings.AXIOMS_AUDIENCE:
             raise Exception(
-                "🔥🔥  {}. Please set AXIOMS_DOMAIN, AXIOMS_AUDIENCE in your settings.".format(
-                    e
-                )
+                "🔥🔥 AXIOMS_AUDIENCE is required. Please set AXIOMS_AUDIENCE in your settings."
+            )
+
+        # Validate that at least one JWKS source is configured
+        has_jwks_url = hasattr(settings, 'AXIOMS_JWKS_URL') and settings.AXIOMS_JWKS_URL
+        has_iss_url = hasattr(settings, 'AXIOMS_ISS_URL') and settings.AXIOMS_ISS_URL
+        has_domain = hasattr(settings, 'AXIOMS_DOMAIN') and settings.AXIOMS_DOMAIN
+
+        if not (has_jwks_url or has_iss_url or has_domain):
+            raise Exception(
+                "🔥🔥 JWKS URL configuration required. Please set one of: "
+                "AXIOMS_JWKS_URL, AXIOMS_ISS_URL, or AXIOMS_DOMAIN in your settings."
             )
 
         auth_header = request.headers.get(header_name, None)
@@ -122,6 +132,8 @@ class AccessTokenMiddleware(MiddlewareMixin):
         else:
             try:
                 bearer, _, token = auth_header.partition(" ")
+                # Strip whitespace from token to handle multiple spaces
+                token = token.strip()
                 if bearer.lower() == token_prefix and token != "":
                     payload = has_valid_token(token)
                     request.auth_jwt = payload

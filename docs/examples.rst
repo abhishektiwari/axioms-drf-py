@@ -464,8 +464,176 @@ Allow unauthenticated access for specific HTTP methods:
            # Requires valid JWT token to create
            return Response({'status': 'created'})
 
+Object-Level Permissions
+-------------------------
+
+Restrict access to resources based on ownership using the ``sub`` claim from the JWT token.
+
+Owner-Only Access
+^^^^^^^^^^^^^^^^^^
+
+Use ``IsSubOwner`` to restrict all operations to the resource owner:
+
+.. code-block:: python
+
+   from rest_framework import viewsets
+   from rest_framework.response import Response
+   from rest_framework import status
+   from axioms_drf.authentication import HasValidAccessToken
+   from axioms_drf.permissions import IsSubOwner
+
+   class ArticleViewSet(viewsets.ModelViewSet):
+       """Only the owner (matched by sub claim) can access their articles."""
+       authentication_classes = [HasValidAccessToken]
+       permission_classes = [IsSubOwner]
+       owner_attribute = 'author_sub'  # Compare token sub with article.author_sub
+       queryset = Article.objects.all()
+       serializer_class = ArticleSerializer
+
+       def perform_create(self, serializer):
+           # Automatically set the author from the token's sub claim
+           serializer.save(author_sub=self.request.user)
+
+**Example JWT Token Payload (Success for owner):**
+
+.. code-block:: json
+
+   {
+     "sub": "user123",
+     "iss": "https://your-auth.domain.com",
+     "aud": "your-api-audience",
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+This request will **succeed** for operations on articles where ``article.author_sub == "user123"``.
+
+**Example JWT Token Payload (Failure for non-owner):**
+
+.. code-block:: json
+
+   {
+     "sub": "user456",
+     "iss": "https://your-auth.domain.com",
+     "aud": "your-api-audience",
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+This request will **fail** with 403 Forbidden when attempting to access or modify articles where ``article.author_sub == "user123"`` because the token's ``sub`` claim (``user456``) doesn't match the article's ``author_sub`` (``user123``).
+
+Public Read, Owner-Only Modify
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use ``IsSubOwnerOrSafeOnly`` to allow anyone to read, but only owners can update/delete:
+
+.. code-block:: python
+
+   from rest_framework import viewsets
+   from axioms_drf.authentication import HasValidAccessToken
+   from axioms_drf.permissions import IsSubOwnerOrSafeOnly
+
+   class ArticleViewSet(viewsets.ModelViewSet):
+       """Anyone can read articles, only owners can update/delete."""
+       authentication_classes = [HasValidAccessToken]
+       permission_classes = [IsSubOwnerOrSafeOnly]
+       owner_attribute = 'author_sub'
+       queryset = Article.objects.all()
+       serializer_class = ArticleSerializer
+
+       def perform_create(self, serializer):
+           serializer.save(author_sub=self.request.user)
+
+**Example JWT Token Payload (Success for GET - any authenticated user):**
+
+.. code-block:: json
+
+   {
+     "sub": "user456",
+     "iss": "https://your-auth.domain.com",
+     "aud": "your-api-audience",
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+This GET request will **succeed** for any authenticated user, regardless of ownership.
+
+**Example JWT Token Payload (Success for PATCH/DELETE - owner only):**
+
+.. code-block:: json
+
+   {
+     "sub": "user123",
+     "iss": "https://your-auth.domain.com",
+     "aud": "your-api-audience",
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+This PATCH or DELETE request will **succeed** only if the token's ``sub`` claim matches the article's ``author_sub`` field.
+
+**Example JWT Token Payload (Failure for PATCH/DELETE - non-owner):**
+
+.. code-block:: json
+
+   {
+     "sub": "user456",
+     "iss": "https://your-auth.domain.com",
+     "aud": "your-api-audience",
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+This PATCH or DELETE request will **fail** with 403 Forbidden because the token's ``sub`` claim doesn't match the article's owner.
+
+Using with APIView
+^^^^^^^^^^^^^^^^^^
+
+Object-level permissions also work with standard APIView (not just ViewSets):
+
+.. code-block:: python
+
+   from rest_framework.views import APIView
+   from rest_framework.response import Response
+   from rest_framework import status
+   from axioms_drf.authentication import HasValidAccessToken
+   from axioms_drf.permissions import IsSubOwner
+
+   class ArticleDetailView(APIView):
+       authentication_classes = [HasValidAccessToken]
+       permission_classes = [IsSubOwner]
+       owner_attribute = 'author_id'
+
+       def get_object(self, pk):
+           return Article.objects.get(pk=pk)
+
+       def get(self, request, pk):
+           article = self.get_object(pk)
+           self.check_object_permissions(request, article)
+           return Response({'title': article.title})
+
+       def patch(self, request, pk):
+           article = self.get_object(pk)
+           self.check_object_permissions(request, article)
+           # Update article logic here
+           return Response({'status': 'updated'})
+
+       def delete(self, request, pk):
+           article = self.get_object(pk)
+           self.check_object_permissions(request, article)
+           article.delete()
+           return Response(status=status.HTTP_204_NO_CONTENT)
+
+.. important::
+   When using object-level permissions with APIView, you must:
+
+   1. Set the ``owner_attribute`` on the view to specify which field contains the owner identifier
+   2. Call ``self.check_object_permissions(request, obj)`` after retrieving the object
+
+   ViewSets automatically call ``check_object_permissions`` for detail actions (retrieve, update, destroy).
+
 Complete Django REST Framework Application
 -------------------------------------------
 
-For a complete working example, check out the `Django REST Framework sample application <https://github.com/axioms-io/sample-python-django-rest-framework>`_
-on GitHub. The sample demonstrates a fully functional Django REST Framework application with authentication and authorization.
+For a complete working example, check out the `example application <https://github.com/abhishektiwari/axioms-drf-py/tree/main/example>`_
+in this repository. The sample demonstrates a fully functional Django REST Framework application with authentication and authorization.

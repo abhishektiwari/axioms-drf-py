@@ -22,10 +22,13 @@ Configuration:
         AXIOMS_SCOPE_CLAIMS = ['scope', 'scp']
 
 Classes:
-    ``HasAccessTokenScopes``: Check scopes (supports both OR and AND logic).
-    ``HasAccessTokenRoles``: Check roles (supports both OR and AND logic).
-    ``HasAccessTokenPermissions``: Check permissions (supports both OR and AND logic).
-    ``InsufficientPermission``: Exception raised when authorization fails.
+    - ``HasAccessTokenScopes``: Check scopes (supports both OR and AND logic).
+    - ``HasAccessTokenRoles``: Check roles (supports both OR and AND logic).
+    - ``HasAccessTokenPermissions``: Check permissions (supports both OR and AND logic).
+    - ``IsSubOwner``: Object-level permission for token subject ownership.
+    - ``IsSubOwnerOrSafeOnly``: Object-level permission allowing safe methods or owner access.
+    - ``IsSafeOnly``: Permission allowing only safe HTTP methods.
+    - ``InsufficientPermission``: Exception raised when authorization fails.
 
 Example::
 
@@ -60,116 +63,14 @@ from rest_framework import status
 from rest_framework.exceptions import APIException
 from rest_framework.permissions import BasePermission
 
-from .helper import check_permissions, check_roles, check_scopes
-
-
-def get_token_scopes(auth_jwt):
-    """Extract scopes from token using standard or configured claim names.
-
-    Checks the ``scope`` claim first, then any custom claims configured in
-    ``AXIOMS_SCOPE_CLAIMS`` setting. Supports both string and list formats.
-
-    Args:
-        auth_jwt: Authenticated JWT token payload (Box object).
-
-    Returns:
-        str: Space-separated scope string from token, or empty string if not found.
-
-    Example::
-
-        # Standard scope claim
-        token = {'scope': 'read:data write:data'}
-        scopes = get_token_scopes(token)  # Returns: 'read:data write:data'
-
-        # Custom scope claim (list format)
-        token = {'scp': ['read:data', 'write:data']}
-        scopes = get_token_scopes(token)  # Returns: 'read:data write:data'
-    """
-    # Try standard 'scope' claim first
-    if hasattr(auth_jwt, "scope"):
-        return getattr(auth_jwt, "scope", "")
-
-    # Then try configured claims if AXIOMS_SCOPE_CLAIMS is set
-    if hasattr(settings, "AXIOMS_SCOPE_CLAIMS"):
-        for claim_name in settings.AXIOMS_SCOPE_CLAIMS:
-            if hasattr(auth_jwt, claim_name):
-                scope_value = getattr(auth_jwt, claim_name, "")
-                # Handle both string and list formats
-                if isinstance(scope_value, list):
-                    return " ".join(scope_value)
-                return scope_value
-
-    return ""
-
-
-def get_token_roles(auth_jwt):
-    """Extract roles from token using standard or configured claim names.
-
-    Checks the ``roles`` claim first, then any custom claims configured in
-    ``AXIOMS_ROLES_CLAIMS`` setting.
-
-    Args:
-        auth_jwt: Authenticated JWT token payload (Box object).
-
-    Returns:
-        list: List of roles from token, or empty list if not found.
-
-    Example::
-
-        # Standard roles claim
-        token = {'roles': ['admin', 'editor']}
-        roles = get_token_roles(token)  # Returns: ['admin', 'editor']
-
-        # Custom namespaced roles claim
-        token = {'https://example.com/roles': ['admin']}
-        roles = get_token_roles(token)  # Returns: ['admin']
-    """
-    # Try standard 'roles' claim first
-    if hasattr(auth_jwt, "roles"):
-        return getattr(auth_jwt, "roles", [])
-
-    # Then try configured claims if AXIOMS_ROLES_CLAIMS is set
-    if hasattr(settings, "AXIOMS_ROLES_CLAIMS"):
-        for claim_name in settings.AXIOMS_ROLES_CLAIMS:
-            if hasattr(auth_jwt, claim_name):
-                return getattr(auth_jwt, claim_name, [])
-
-    return []
-
-
-def get_token_permissions(auth_jwt):
-    """Extract permissions from token using standard or configured claim names.
-
-    Checks the ``permissions`` claim first, then any custom claims configured in
-    ``AXIOMS_PERMISSIONS_CLAIMS`` setting.
-
-    Args:
-        auth_jwt: Authenticated JWT token payload (Box object).
-
-    Returns:
-        list: List of permissions from token, or empty list if not found.
-
-    Example::
-
-        # Standard permissions claim
-        token = {'permissions': ['read:users', 'write:users']}
-        perms = get_token_permissions(token)  # Returns: ['read:users', 'write:users']
-
-        # Custom namespaced permissions claim
-        token = {'https://example.com/permissions': ['read:users']}
-        perms = get_token_permissions(token)  # Returns: ['read:users']
-    """
-    # Try standard 'permissions' claim first
-    if hasattr(auth_jwt, "permissions"):
-        return getattr(auth_jwt, "permissions", [])
-
-    # Then try configured claims if AXIOMS_PERMISSIONS_CLAIMS is set
-    if hasattr(settings, "AXIOMS_PERMISSIONS_CLAIMS"):
-        for claim_name in settings.AXIOMS_PERMISSIONS_CLAIMS:
-            if hasattr(auth_jwt, claim_name):
-                return getattr(auth_jwt, claim_name, [])
-
-    return []
+from .helper import (
+    check_permissions,
+    check_roles,
+    check_scopes,
+    get_token_permissions,
+    get_token_roles,
+    get_token_scopes,
+)
 
 
 class HasAccessTokenScopes(BasePermission):
@@ -492,6 +393,273 @@ class HasAccessTokenPermissions(BasePermission):
 
         except AttributeError:
             raise InsufficientPermission
+
+
+class IsSubOwner(BasePermission):
+    """Object-level permission that checks if the token subject matches the object owner.
+
+    This permission class checks if the ``sub`` (subject) claim from the JWT token
+    matches a specified attribute on the object being accessed. This is useful for
+    ensuring users can only access their own resources.
+
+    Attributes:
+        owner_attribute: Name of the object attribute to compare with token ``sub``.
+                        Defaults to ``'user'``.
+
+    Example::
+
+        # Basic usage - compares token sub with object.owner
+        class ArticleDetailView(APIView):
+            authentication_classes = [HasValidAccessToken]
+            permission_classes = [IsSubOwner]
+            owner_attribute = 'author_id'  # Compare with object.author_id
+
+            def get_object(self):
+                return Article.objects.get(pk=self.kwargs['pk'])
+
+            def get(self, request, pk):
+                article = self.get_object()
+                self.check_object_permissions(request, article)
+                return Response({'title': article.title})
+
+        # Using with ViewSet
+        class ArticleViewSet(viewsets.ModelViewSet):
+            authentication_classes = [HasValidAccessToken]
+            permission_classes = [IsSubOwner]
+            owner_attribute = 'user_id'
+            queryset = Article.objects.all()
+            serializer_class = ArticleSerializer
+
+    Raises:
+        InsufficientPermission: If token subject doesn't match object owner.
+        ImproperlyConfigured: If ``owner_attribute`` is not defined.
+    """
+
+    message = "Permission Denied - Not the owner"
+
+    def has_object_permission(self, request, view, obj):
+        """Check if token subject matches object owner attribute.
+
+        Args:
+            request: Django REST Framework request with ``auth_jwt`` attribute.
+            view: View instance with ``owner_attribute``.
+            obj: Object being accessed.
+
+        Returns:
+            bool: ``True`` if token subject matches object owner.
+
+        Raises:
+            InsufficientPermission: If authorization fails.
+            ImproperlyConfigured: If owner_attribute is not set or object doesn't have the attribute.
+        """
+        try:
+            auth_jwt = request.auth_jwt
+            token_sub = getattr(auth_jwt, "sub", None)
+
+            if not token_sub:
+                raise InsufficientPermission
+
+            # Get the owner attribute name from view
+            owner_attr = getattr(view, "owner_attribute", None)
+
+            # Warn if owner_attribute is not explicitly set
+            if owner_attr is None:
+                import warnings
+                warnings.warn(
+                    f"{view.__class__.__name__} does not explicitly set 'owner_attribute'. "
+                    f"Defaulting to 'user'. This may cause ImproperlyConfigured errors. "
+                    f"Set owner_attribute on your view to the correct field name (e.g., owner_attribute = 'author_sub').",
+                    UserWarning,
+                    stacklevel=2
+                )
+                owner_attr = "user"
+
+            if not hasattr(obj, owner_attr):
+                raise ImproperlyConfigured(
+                    f"Object does not have attribute '{owner_attr}'. "
+                    f"Set owner_attribute on the view to the correct field name."
+                )
+
+            # Get the owner value from object
+            owner_value = getattr(obj, owner_attr, None)
+
+            # Compare token sub with object owner
+            if str(token_sub) != str(owner_value):
+                raise InsufficientPermission
+
+            return True
+
+        except AttributeError:
+            raise InsufficientPermission
+
+
+class IsSubOwnerOrSafeOnly(BasePermission):
+    """Object-level permission for safe methods or owner-only modifications.
+
+    Allows safe HTTP methods (GET, HEAD, OPTIONS by default) for all authenticated
+    users, but restricts unsafe methods (POST, PUT, PATCH, DELETE) to the object owner.
+    Owner is determined by comparing the token ``sub`` claim with a specified object
+    attribute.
+
+    Attributes:
+        owner_attribute: Name of the object attribute to compare with token ``sub``.
+                        Defaults to ``'owner'``.
+        safe_methods: Tuple of HTTP methods considered safe. Defaults to
+                     ``('GET', 'HEAD', 'OPTIONS')``.
+
+    Example::
+
+        # Allow anyone to read, but only owner can update/delete
+        class ArticleDetailView(APIView):
+            authentication_classes = [HasValidAccessToken]
+            permission_classes = [IsSubOwnerOrSafeOnly]
+            owner_attribute = 'author_id'
+            safe_methods = ('GET', 'HEAD', 'OPTIONS')
+
+            def get_object(self):
+                return Article.objects.get(pk=self.kwargs['pk'])
+
+            def get(self, request, pk):
+                # Anyone can read
+                article = self.get_object()
+                self.check_object_permissions(request, article)
+                return Response({'title': article.title})
+
+            def put(self, request, pk):
+                # Only owner can update
+                article = self.get_object()
+                self.check_object_permissions(request, article)
+                # Update logic
+                return Response({'status': 'updated'})
+
+        # Using with ViewSet
+        class ArticleViewSet(viewsets.ModelViewSet):
+            authentication_classes = [HasValidAccessToken]
+            permission_classes = [IsSubOwnerOrSafeOnly]
+            owner_attribute = 'user_id'
+            safe_methods = ('GET', 'HEAD', 'OPTIONS', 'LIST')
+            queryset = Article.objects.all()
+            serializer_class = ArticleSerializer
+
+    Raises:
+        InsufficientPermission: If non-safe method and token subject doesn't match owner.
+        ImproperlyConfigured: If ``owner_attribute`` is not defined.
+    """
+
+    message = "Permission Denied - Safe methods only or must be owner"
+
+    def has_object_permission(self, request, view, obj):
+        """Check if request method is safe or token subject matches owner.
+
+        Args:
+            request: Django REST Framework request with ``auth_jwt`` and ``method``.
+            view: View instance with ``owner_attribute`` and ``safe_methods``.
+            obj: Object being accessed.
+
+        Returns:
+            bool: ``True`` if method is safe or user is owner.
+
+        Raises:
+            InsufficientPermission: If authorization fails.
+        """
+        # Get safe methods from view or use default
+        safe_methods = getattr(view, "safe_methods", ("GET", "HEAD", "OPTIONS"))
+
+        # Allow safe methods for all authenticated users
+        if request.method in safe_methods:
+            return True
+
+        # For unsafe methods, check ownership
+        try:
+            auth_jwt = request.auth_jwt
+            token_sub = getattr(auth_jwt, "sub", None)
+
+            if not token_sub:
+                raise InsufficientPermission
+
+            # Get the owner attribute name from view
+            owner_attr = getattr(view, "owner_attribute", "user")
+
+            if not hasattr(obj, owner_attr):
+                raise ImproperlyConfigured(
+                    f"Object does not have attribute '{owner_attr}'. "
+                    f"Set owner_attribute on the view to the correct field name."
+                )
+
+            # Get the owner value from object
+            owner_value = getattr(obj, owner_attr, None)
+
+            # Compare token sub with object owner
+            if str(token_sub) != str(owner_value):
+                raise InsufficientPermission
+
+            return True
+
+        except AttributeError:
+            raise InsufficientPermission
+
+
+class IsSafeOnly(BasePermission):
+    """Permission that only allows safe HTTP methods.
+
+    Restricts access to safe HTTP methods only (GET, HEAD, OPTIONS by default).
+    Useful for read-only endpoints where authenticated users can view but not modify.
+
+    Attributes:
+        safe_methods: Tuple of HTTP methods considered safe. Defaults to
+                     ``('GET', 'HEAD', 'OPTIONS')``.
+
+    Example::
+
+        # Read-only access for all authenticated users
+        class ArticleListView(APIView):
+            authentication_classes = [HasValidAccessToken]
+            permission_classes = [IsSafeOnly]
+            safe_methods = ('GET', 'HEAD', 'OPTIONS')
+
+            def get(self, request):
+                articles = Article.objects.all()
+                return Response({'articles': list(articles.values())})
+
+            def post(self, request):
+                # This will be denied by IsSafeOnly permission
+                return Response({'status': 'created'})
+
+        # Custom safe methods including LIST
+        class CustomReadOnlyView(APIView):
+            authentication_classes = [HasValidAccessToken]
+            permission_classes = [IsSafeOnly]
+            safe_methods = ('GET', 'HEAD', 'OPTIONS', 'LIST')
+
+            def get(self, request):
+                return Response({'data': 'read-only'})
+
+    Raises:
+        InsufficientPermission: If request method is not in safe_methods.
+    """
+
+    message = "Permission Denied - Safe methods only"
+
+    def has_permission(self, request, view):
+        """Check if request method is safe.
+
+        Args:
+            request: Django REST Framework request with ``method``.
+            view: View instance with optional ``safe_methods`` attribute.
+
+        Returns:
+            bool: ``True`` if method is safe.
+
+        Raises:
+            InsufficientPermission: If method is not safe.
+        """
+        # Get safe methods from view or use default
+        safe_methods = getattr(view, "safe_methods", ("GET", "HEAD", "OPTIONS"))
+
+        if request.method not in safe_methods:
+            raise InsufficientPermission
+
+        return True
 
 
 class InsufficientPermission(APIException):
