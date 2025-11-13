@@ -4,7 +4,6 @@ This module provides helper functions for JWT token validation with support for
 algorithm validation, issuer validation, and configuration hierarchy.
 """
 
-import json
 import logging
 import ssl
 from urllib.request import urlopen
@@ -98,19 +97,19 @@ def check_token_validity(token, key, alg):
 
         # Build decode options
         options = {
-            'verify_signature': True,
-            'verify_exp': True,
-            'verify_aud': True,
-            'verify_iss': False,  # We'll handle this conditionally
-            'verify_iat': True,
-            'verify_nbf': True,
-            'require_exp': True,
+            "verify_signature": True,
+            "verify_exp": True,
+            "verify_aud": True,
+            "verify_iss": False,  # We'll handle this conditionally
+            "verify_iat": True,
+            "verify_nbf": True,
+            "require_exp": True,
         }
 
         # Get expected issuer if configured
         expected_issuer = get_expected_issuer()
         if expected_issuer:
-            options['verify_iss'] = True
+            options["verify_iss"] = True
 
         # Decode and verify token
         # Use ALLOWED_ALGORITHMS for defense-in-depth against algorithm confusion attacks
@@ -120,7 +119,7 @@ def check_token_validity(token, key, alg):
             algorithms=list(ALLOWED_ALGORITHMS),
             audience=settings.AXIOMS_AUDIENCE,
             issuer=expected_issuer,
-            options=options
+            options=options,
         )
 
         return Box(payload)

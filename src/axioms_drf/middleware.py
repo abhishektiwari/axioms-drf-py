@@ -110,15 +110,15 @@ class AccessTokenMiddleware(MiddlewareMixin):
         request.invalid_bearer_token = False
 
         # Validate required settings
-        if not hasattr(settings, 'AXIOMS_AUDIENCE') or not settings.AXIOMS_AUDIENCE:
+        if not hasattr(settings, "AXIOMS_AUDIENCE") or not settings.AXIOMS_AUDIENCE:
             raise Exception(
                 "🔥🔥 AXIOMS_AUDIENCE is required. Please set AXIOMS_AUDIENCE in your settings."
             )
 
         # Validate that at least one JWKS source is configured
-        has_jwks_url = hasattr(settings, 'AXIOMS_JWKS_URL') and settings.AXIOMS_JWKS_URL
-        has_iss_url = hasattr(settings, 'AXIOMS_ISS_URL') and settings.AXIOMS_ISS_URL
-        has_domain = hasattr(settings, 'AXIOMS_DOMAIN') and settings.AXIOMS_DOMAIN
+        has_jwks_url = hasattr(settings, "AXIOMS_JWKS_URL") and settings.AXIOMS_JWKS_URL
+        has_iss_url = hasattr(settings, "AXIOMS_ISS_URL") and settings.AXIOMS_ISS_URL
+        has_domain = hasattr(settings, "AXIOMS_DOMAIN") and settings.AXIOMS_DOMAIN
 
         if not (has_jwks_url or has_iss_url or has_domain):
             raise Exception(

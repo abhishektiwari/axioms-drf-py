@@ -14,13 +14,13 @@ except ImportError:
 
 from .authentication import HasValidAccessToken
 from .permissions import (
-    HasAccessTokenScopes,
-    HasAccessTokenRoles,
     HasAccessTokenPermissions,
+    HasAccessTokenRoles,
+    HasAccessTokenScopes,
+    InsufficientPermission,
+    IsSafeOnly,
     IsSubOwner,
     IsSubOwnerOrSafeOnly,
-    IsSafeOnly,
-    InsufficientPermission,
 )
 
 __all__ = [

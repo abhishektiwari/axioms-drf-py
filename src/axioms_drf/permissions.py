@@ -57,7 +57,6 @@ Example::
             return Response({'status': 'created'})
 """
 
-from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from rest_framework import status
 from rest_framework.exceptions import APIException
@@ -450,7 +449,8 @@ class IsSubOwner(BasePermission):
 
         Raises:
             InsufficientPermission: If authorization fails.
-            ImproperlyConfigured: If owner_attribute is not set or object doesn't have the attribute.
+            ImproperlyConfigured: If owner_attribute is not set or object doesn't
+                have the attribute.
         """
         try:
             auth_jwt = request.auth_jwt
@@ -465,12 +465,14 @@ class IsSubOwner(BasePermission):
             # Warn if owner_attribute is not explicitly set
             if owner_attr is None:
                 import warnings
+
                 warnings.warn(
                     f"{view.__class__.__name__} does not explicitly set 'owner_attribute'. "
                     f"Defaulting to 'user'. This may cause ImproperlyConfigured errors. "
-                    f"Set owner_attribute on your view to the correct field name (e.g., owner_attribute = 'author_sub').",
+                    f"Set owner_attribute on your view to the correct field name "
+                    f"(e.g., owner_attribute = 'author_sub').",
                     UserWarning,
-                    stacklevel=2
+                    stacklevel=2,
                 )
                 owner_attr = "user"
 

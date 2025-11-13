@@ -81,7 +81,7 @@ class HasValidAccessToken(authentication.BaseAuthentication):
             UnauthorizedAccess: If token validation fails.
         """
         # Allow safe HTTP methods without access token (configurable, defaults to HEAD/OPTIONS)
-        safe_methods = getattr(settings, 'AXIOMS_SAFE_METHODS', ('HEAD', 'OPTIONS'))
+        safe_methods = getattr(settings, "AXIOMS_SAFE_METHODS", ("HEAD", "OPTIONS"))
         if request.method in safe_methods:
             return (None, True)
         auth_jwt = request.auth_jwt
