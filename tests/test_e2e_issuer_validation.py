@@ -16,9 +16,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.test import APIRequestFactory
 from jwcrypto import jwk
-from jwcrypto import jwt as jwcrypto_jwt
 from axioms_drf.authentication import HasValidAccessToken
 from axioms_drf.permissions import HasAccessTokenScopes
+from tests.conftest import generate_jwt_token
 
 # Configure Django settings before importing models
 if not settings.configured:
@@ -30,16 +30,6 @@ if not settings.configured:
         CACHES={'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}},
     )
     django.setup()
-
-
-def generate_jwt_token(key, claims):
-    """Generate a JWT token with specified claims."""
-    token = jwcrypto_jwt.JWT(
-        header={"alg": "RS256", "kid": key.kid},
-        claims=claims
-    )
-    token.make_signed_token(key)
-    return token.serialize()
 
 
 # Test view
@@ -62,7 +52,6 @@ def view():
 class TestIssuerValidation:
     """Test issuer claim validation for token security."""
 
-    @override_settings(AXIOMS_ISS_URL='https://test-domain.com')
     def test_valid_token_with_matching_issuer(self, factory, view, test_key):
         """Test that token with matching issuer is accepted."""
         now = int(time.time())
@@ -81,7 +70,6 @@ class TestIssuerValidation:
         assert response.status_code == 200
         assert response.data['message'] == 'Private endpoint'
 
-    @override_settings(AXIOMS_ISS_URL='https://test-domain.com')
     def test_token_with_wrong_issuer(self, factory, view, test_key):
         """Test that token with wrong issuer is rejected."""
         now = int(time.time())
@@ -99,7 +87,6 @@ class TestIssuerValidation:
         response = view(request)
         assert response.status_code == 401
 
-    @override_settings(AXIOMS_ISS_URL='https://test-domain.com')
     def test_token_without_issuer_claim_when_validation_enabled(self, factory, view, test_key):
         """Test that token without issuer is rejected when validation is enabled."""
         now = int(time.time())

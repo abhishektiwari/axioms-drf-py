@@ -41,7 +41,8 @@ def has_valid_token(token):
         token: JWT token string.
 
     Returns:
-        Box: Validated JWT payload.
+        Box: Immutable (frozen) Box containing validated JWT payload. The returned Box
+             cannot be modified to prevent tampering with validated token claims.
 
     Raises:
         UnauthorizedAccess: If token is invalid.
@@ -84,7 +85,8 @@ def check_token_validity(token, key, alg):
         alg: Algorithm from token header (already validated against ALLOWED_ALGORITHMS).
 
     Returns:
-        Box: Validated payload.
+        Box: Immutable (frozen) Box containing validated payload. The returned Box
+             cannot be modified to prevent tampering with validated token claims.
 
     Raises:
         UnauthorizedAccess: If token validation fails.
@@ -122,7 +124,8 @@ def check_token_validity(token, key, alg):
             options=options,
         )
 
-        return Box(payload)
+        # Return immutable Box to prevent payload modification
+        return Box(payload, frozen_box=True)
 
     except jwt.ExpiredSignatureError:
         raise UnauthorizedAccess

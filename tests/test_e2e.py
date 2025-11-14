@@ -15,11 +15,13 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.test import APIRequestFactory
 from jwcrypto import jwk
-from jwcrypto import jwt as jwcrypto_jwt
 from axioms_drf.authentication import HasValidAccessToken
 from axioms_drf.permissions import (
     HasAccessTokenScopes, HasAccessTokenRoles, HasAccessTokenPermissions
 )
+from rest_framework import viewsets, serializers
+from django.db import models
+from tests.conftest import generate_jwt_token
 
 # Configure Django settings before importing models
 if not settings.configured:
@@ -31,16 +33,6 @@ if not settings.configured:
         CACHES={'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}},
     )
     django.setup()
-
-
-def generate_jwt_token(key, claims):
-    """Generate a JWT token with specified claims."""
-    token = jwcrypto_jwt.JWT(
-        header={"alg": "RS256", "kid": key.kid},
-        claims=claims
-    )
-    token.make_signed_token(key)
-    return token.serialize()
 
 
 # Test views
@@ -891,5 +883,372 @@ class TestANDLogicAuthorization:
         token = generate_jwt_token(test_key, claims)
         view = MixedAuthorizationAPIView.as_view()
         request = factory.get('/chaining/mixed', HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = view(request)
+        assert response.status_code == 403
+
+# Mock model for ViewSet testing
+class MockBook:
+    """Mock book model for testing ViewSets."""
+    def __init__(self, pk, title):
+        self.pk = pk
+        self.title = title
+
+
+class BookSerializer(serializers.Serializer):
+    """Serializer for MockBook."""
+    pk = serializers.IntegerField()
+    title = serializers.CharField()
+
+
+class BookViewSet(viewsets.ViewSet):
+    """ViewSet with action-specific scope permissions."""
+    authentication_classes = [HasValidAccessToken]
+    permission_classes = [HasAccessTokenScopes]
+
+    @property
+    def access_token_scopes(self):
+        """Return different scopes based on ViewSet action."""
+        action_scopes = {
+            'list': ['book:read'],
+            'retrieve': ['book:read'],
+            'create': ['book:create'],
+            'update': ['book:update'],
+            'partial_update': ['book:update'],
+            'destroy': ['book:delete'],
+        }
+        return action_scopes.get(self.action, [])
+
+    def list(self, request):
+        """List books - requires book:read scope."""
+        books = [MockBook(1, 'Book 1'), MockBook(2, 'Book 2')]
+        serializer = BookSerializer(books, many=True)
+        return Response(serializer.data)
+
+    def retrieve(self, request, pk=None):
+        """Retrieve book - requires book:read scope."""
+        book = MockBook(pk, f'Book {pk}')
+        serializer = BookSerializer(book)
+        return Response(serializer.data)
+
+    def create(self, request):
+        """Create book - requires book:create scope."""
+        return Response({'id': 1, 'title': 'New Book'}, status=status.HTTP_201_CREATED)
+
+    def update(self, request, pk=None):
+        """Update book - requires book:update scope."""
+        return Response({'id': pk, 'title': 'Updated Book'})
+
+    def partial_update(self, request, pk=None):
+        """Partial update book - requires book:update scope."""
+        return Response({'id': pk, 'title': 'Partially Updated Book'})
+
+    def destroy(self, request, pk=None):
+        """Delete book - requires book:delete scope."""
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DocumentViewSet(viewsets.ViewSet):
+    """ViewSet with action-specific permission permissions."""
+    authentication_classes = [HasValidAccessToken]
+    permission_classes = [HasAccessTokenPermissions]
+
+    @property
+    def access_token_permissions(self):
+        """Return different permissions based on ViewSet action."""
+        action_permissions = {
+            'list': ['document:read'],
+            'retrieve': ['document:read'],
+            'create': ['document:create'],
+            'update': ['document:update'],
+            'partial_update': ['document:update'],
+            'destroy': ['document:delete'],
+        }
+        return action_permissions.get(self.action, [])
+
+    def list(self, request):
+        """List documents - requires document:read permission."""
+        return Response({'documents': []})
+
+    def retrieve(self, request, pk=None):
+        """Retrieve document - requires document:read permission."""
+        return Response({'id': pk, 'title': 'Document'})
+
+    def create(self, request):
+        """Create document - requires document:create permission."""
+        return Response({'id': 1}, status=status.HTTP_201_CREATED)
+
+    def update(self, request, pk=None):
+        """Update document - requires document:update permission."""
+        return Response({'id': pk, 'updated': True})
+
+    def partial_update(self, request, pk=None):
+        """Partial update document - requires document:update permission."""
+        return Response({'id': pk, 'updated': True})
+
+    def destroy(self, request, pk=None):
+        """Delete document - requires document:delete permission."""
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@pytest.mark.django_db
+class TestViewSetActionPermissions:
+    """Test ViewSet with action-specific scope permissions."""
+
+    def test_viewset_list_with_read_scope(self, factory, test_key):
+        """Test list action succeeds with read scope."""
+        now = int(time.time())
+        claims = json.dumps({
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
+            'scope': 'book:read',
+            'exp': now + 3600,
+            'iat': now
+        })
+
+        token = generate_jwt_token(test_key, claims)
+        view = BookViewSet.as_view({'get': 'list'})
+        request = factory.get('/books/', HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = view(request)
+        assert response.status_code == 200
+        assert len(response.data) == 2
+
+    def test_viewset_list_without_read_scope(self, factory, test_key):
+        """Test list action fails without read scope."""
+        now = int(time.time())
+        claims = json.dumps({
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
+            'scope': 'book:create',
+            'exp': now + 3600,
+            'iat': now
+        })
+
+        token = generate_jwt_token(test_key, claims)
+        view = BookViewSet.as_view({'get': 'list'})
+        request = factory.get('/books/', HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = view(request)
+        assert response.status_code == 403
+
+    def test_viewset_retrieve_with_read_scope(self, factory, test_key):
+        """Test retrieve action succeeds with read scope."""
+        now = int(time.time())
+        claims = json.dumps({
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
+            'scope': 'book:read',
+            'exp': now + 3600,
+            'iat': now
+        })
+
+        token = generate_jwt_token(test_key, claims)
+        view = BookViewSet.as_view({'get': 'retrieve'})
+        request = factory.get('/books/1/', HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = view(request, pk=1)
+        assert response.status_code == 200
+        assert response.data['pk'] == 1
+
+    def test_viewset_create_with_create_scope(self, factory, test_key):
+        """Test create action succeeds with create scope."""
+        now = int(time.time())
+        claims = json.dumps({
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
+            'scope': 'book:create',
+            'exp': now + 3600,
+            'iat': now
+        })
+
+        token = generate_jwt_token(test_key, claims)
+        view = BookViewSet.as_view({'post': 'create'})
+        request = factory.post('/books/', {'title': 'New Book'}, HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = view(request)
+        assert response.status_code == 201
+
+    def test_viewset_create_without_create_scope(self, factory, test_key):
+        """Test create action fails without create scope."""
+        now = int(time.time())
+        claims = json.dumps({
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
+            'scope': 'book:read',
+            'exp': now + 3600,
+            'iat': now
+        })
+
+        token = generate_jwt_token(test_key, claims)
+        view = BookViewSet.as_view({'post': 'create'})
+        request = factory.post('/books/', {'title': 'New Book'}, HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = view(request)
+        assert response.status_code == 403
+
+    def test_viewset_update_with_update_scope(self, factory, test_key):
+        """Test update action succeeds with update scope."""
+        now = int(time.time())
+        claims = json.dumps({
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
+            'scope': 'book:update',
+            'exp': now + 3600,
+            'iat': now
+        })
+
+        token = generate_jwt_token(test_key, claims)
+        view = BookViewSet.as_view({'put': 'update'})
+        request = factory.put('/books/1/', {'title': 'Updated'}, HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = view(request, pk=1)
+        assert response.status_code == 200
+
+    def test_viewset_partial_update_with_update_scope(self, factory, test_key):
+        """Test partial_update action succeeds with update scope."""
+        now = int(time.time())
+        claims = json.dumps({
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
+            'scope': 'book:update',
+            'exp': now + 3600,
+            'iat': now
+        })
+
+        token = generate_jwt_token(test_key, claims)
+        view = BookViewSet.as_view({'patch': 'partial_update'})
+        request = factory.patch('/books/1/', {'title': 'Patched'}, HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = view(request, pk=1)
+        assert response.status_code == 200
+
+    def test_viewset_destroy_with_delete_scope(self, factory, test_key):
+        """Test destroy action succeeds with delete scope."""
+        now = int(time.time())
+        claims = json.dumps({
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
+            'scope': 'book:delete',
+            'exp': now + 3600,
+            'iat': now
+        })
+
+        token = generate_jwt_token(test_key, claims)
+        view = BookViewSet.as_view({'delete': 'destroy'})
+        request = factory.delete('/books/1/', HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = view(request, pk=1)
+        assert response.status_code == 204
+
+    def test_viewset_destroy_without_delete_scope(self, factory, test_key):
+        """Test destroy action fails without delete scope."""
+        now = int(time.time())
+        claims = json.dumps({
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
+            'scope': 'book:read',
+            'exp': now + 3600,
+            'iat': now
+        })
+
+        token = generate_jwt_token(test_key, claims)
+        view = BookViewSet.as_view({'delete': 'destroy'})
+        request = factory.delete('/books/1/', HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = view(request, pk=1)
+        assert response.status_code == 403
+
+
+@pytest.mark.django_db
+class TestViewSetActionPermissionsWithPermissionClaims:
+    """Test ViewSet with action-specific permission claims."""
+
+    def test_viewset_list_with_read_permission(self, factory, test_key):
+        """Test list action succeeds with read permission."""
+        now = int(time.time())
+        claims = json.dumps({
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
+            'permissions': ['document:read'],
+            'exp': now + 3600,
+            'iat': now
+        })
+
+        token = generate_jwt_token(test_key, claims)
+        view = DocumentViewSet.as_view({'get': 'list'})
+        request = factory.get('/documents/', HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = view(request)
+        assert response.status_code == 200
+
+    def test_viewset_create_with_create_permission(self, factory, test_key):
+        """Test create action succeeds with create permission."""
+        now = int(time.time())
+        claims = json.dumps({
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
+            'permissions': ['document:create'],
+            'exp': now + 3600,
+            'iat': now
+        })
+
+        token = generate_jwt_token(test_key, claims)
+        view = DocumentViewSet.as_view({'post': 'create'})
+        request = factory.post('/documents/', {'title': 'New Doc'}, HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = view(request)
+        assert response.status_code == 201
+
+    def test_viewset_update_with_update_permission(self, factory, test_key):
+        """Test update action succeeds with update permission."""
+        now = int(time.time())
+        claims = json.dumps({
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
+            'permissions': ['document:update'],
+            'exp': now + 3600,
+            'iat': now
+        })
+
+        token = generate_jwt_token(test_key, claims)
+        view = DocumentViewSet.as_view({'put': 'update'})
+        request = factory.put('/documents/1/', {'title': 'Updated'}, HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = view(request, pk=1)
+        assert response.status_code == 200
+
+    def test_viewset_destroy_with_delete_permission(self, factory, test_key):
+        """Test destroy action succeeds with delete permission."""
+        now = int(time.time())
+        claims = json.dumps({
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
+            'permissions': ['document:delete'],
+            'exp': now + 3600,
+            'iat': now
+        })
+
+        token = generate_jwt_token(test_key, claims)
+        view = DocumentViewSet.as_view({'delete': 'destroy'})
+        request = factory.delete('/documents/1/', HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = view(request, pk=1)
+        assert response.status_code == 204
+
+    def test_viewset_create_without_create_permission(self, factory, test_key):
+        """Test create action fails without create permission."""
+        now = int(time.time())
+        claims = json.dumps({
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
+            'permissions': ['document:read'],
+            'exp': now + 3600,
+            'iat': now
+        })
+
+        token = generate_jwt_token(test_key, claims)
+        view = DocumentViewSet.as_view({'post': 'create'})
+        request = factory.post('/documents/', {'title': 'New Doc'}, HTTP_AUTHORIZATION=f'Bearer {token}')
         response = view(request)
         assert response.status_code == 403

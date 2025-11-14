@@ -9,18 +9,8 @@ import time
 import pytest
 from django.test import override_settings
 from rest_framework.test import APIRequestFactory
-from jwcrypto import jwt as jwcrypto_jwt
 from axioms_drf.middleware import AccessTokenMiddleware
-
-
-def generate_jwt_token(key, claims, alg='RS256'):
-    """Generate a JWT token with specified claims and algorithm."""
-    token = jwcrypto_jwt.JWT(
-        header={"alg": alg, "kid": key.kid},
-        claims=claims
-    )
-    token.make_signed_token(key)
-    return token.serialize()
+from tests.conftest import generate_jwt_token
 
 
 class TestMiddlewareConfigurationValidation:
@@ -360,7 +350,6 @@ class TestMiddlewareErrorHandling:
         # Missing kid should set auth_jwt to False
         assert request.auth_jwt is False
 
-    @override_settings(AXIOMS_ISS_URL='https://test-domain.com')
     def test_wrong_issuer_sets_auth_jwt_to_false(self, apply_middleware, test_key):
         """Test that wrong issuer sets auth_jwt to False."""
         now = int(time.time())
@@ -457,7 +446,9 @@ class TestMiddlewareRequestAttributes:
         assert request.auth_jwt is not False
         assert request.auth_jwt.sub == 'user777'
         assert request.auth_jwt.scope == 'openid'
-        assert request.auth_jwt.roles == ['admin']
-        assert request.auth_jwt.permissions == ['read:all']
+        # Frozen Box converts lists to tuples for immutability
+        assert request.auth_jwt.roles == ('admin',)
+        assert request.auth_jwt.permissions == ('read:all',)
+        assert request.auth_jwt.aud == ('test-audience',)
         assert request.missing_auth_header is False
         assert request.invalid_bearer_token is False

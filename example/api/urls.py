@@ -7,6 +7,7 @@ from . import views
 # Create a router for ViewSets
 router = DefaultRouter()
 router.register(r'articles', views.ArticleViewSet, basename='article')
+router.register(r'books', views.BookViewSet, basename='book')
 
 urlpatterns = [
     # Public endpoint

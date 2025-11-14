@@ -10,8 +10,8 @@ from axioms_drf.permissions import (
     HasAccessTokenPermissions,
     IsSubOwner,
 )
-from .models import Article
-from .serializers import ArticleSerializer
+from .models import Article, Book
+from .serializers import ArticleSerializer, BookSerializer
 
 
 class PublicView(APIView):
@@ -218,3 +218,35 @@ class ArticleViewSet(viewsets.ModelViewSet):
             'articles': serializer.data,
             'note': 'Anyone can list articles. Only owners can update/delete their own articles.'
         })
+
+class BookViewSet(viewsets.ModelViewSet):
+    """ViewSet for Book model with action-specific scope permissions.
+    
+    Demonstrates how to use properties to assign different scopes to different
+    ViewSet actions (list, retrieve, create, update, destroy).
+    """
+
+    queryset = Book.objects.all()
+    serializer_class = BookSerializer
+    authentication_classes = [HasValidAccessToken]
+    permission_classes = [HasAccessTokenScopes]
+
+    @property
+    def access_token_scopes(self):
+        """Return different scopes based on ViewSet action.
+        
+        - list: book:read
+        - retrieve: book:read
+        - create: book:create
+        - update/partial_update: book:update
+        - destroy: book:delete
+        """
+        action_scopes = {
+            'list': ['book:read'],
+            'retrieve': ['book:read'],
+            'create': ['book:create'],
+            'update': ['book:update'],
+            'partial_update': ['book:update'],
+            'destroy': ['book:delete'],
+        }
+        return action_scopes.get(self.action, [])
