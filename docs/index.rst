@@ -35,6 +35,18 @@ Works with access tokens issued by various authorization servers including `AWS 
 .. image:: https://img.shields.io/pypi/pyversions/axioms-drf-py?logo=python&logoColor=white
    :alt: Python Versions
 
+When to use ``axioms-drf-py``?
+----------------------------
+
+Use ``axioms-drf-py`` in your Django REST Framework backend to securely validate JWT access
+tokens issued by OAuth2/OIDC authorization servers like `AWS Cognito <https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html>`_,
+`Auth0 <https://auth0.com/docs/secure/tokens/access-tokens/access-token-profiles>`_,
+`Okta <https://developer.okta.com/docs/api/oauth2/>`_, `Microsoft Entra <https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles>`_, 
+etc. Clients - such as single-page applications (React, Vue), mobile apps, or AI agents—obtain access tokens from the authorization server and send them to your backend. In response, ``axioms-drf-py`` fetches JSON Web Key Set (JWKS) from the issuer, validates token signatures, enforces audience/issuer claims, and provides scope, role, and permission-based authorization for your API endpoints.
+
+.. image:: https://static.abhishek-tiwari.com/axioms/oauth2-oidc-v3.png
+   :alt: When to use Axioms package
+
 Features
 --------
 
