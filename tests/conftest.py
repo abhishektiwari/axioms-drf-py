@@ -1,9 +1,10 @@
 """Pytest configuration and shared fixtures for axioms-drf-py tests."""
 
 import json
+import uuid
 import pytest
+import jwt
 from jwcrypto import jwk
-from jwcrypto import jwt as jwcrypto_jwt
 
 
 @pytest.fixture
@@ -62,20 +63,49 @@ def factory():
     return MiddlewareAPIRequestFactory()
 
 
-def generate_jwt_token(key, claims, alg='RS256'):
-    """Generate a JWT token with specified claims and algorithm.
+def generate_jwt_token(key, claims, alg='RS256', include_kid=True, include_jti=True, custom_header=None):
+    """Generate a JWT token with specified claims and algorithm using PyJWT.
 
     Args:
         key: JWK key for signing.
         claims: Dictionary or JSON string of claims.
         alg: Algorithm to use (default: RS256).
+        include_kid: Whether to include kid in header (default: True).
+        include_jti: Whether to add jti (JWT ID) claim (default: True).
+        custom_header: Custom header dict to override defaults.
 
     Returns:
         str: Serialized JWT token.
     """
-    token = jwcrypto_jwt.JWT(
-        header={"alg": alg, "kid": key.kid},
-        claims=claims
+    # Convert claims to dict if it's a JSON string
+    if isinstance(claims, str):
+        claims_dict = json.loads(claims)
+    else:
+        claims_dict = claims.copy()
+
+    # Add jti (JWT ID) if not present and requested
+    if include_jti and 'jti' not in claims_dict:
+        claims_dict['jti'] = str(uuid.uuid4())
+
+    # Build headers
+    if custom_header:
+        headers = custom_header
+    else:
+        headers = {}
+        if include_kid:
+            headers['kid'] = key.kid
+
+    # Convert JWK to PyJWT-compatible key
+    key_json = key.export_private() if hasattr(key, 'export_private') else key.export_public()
+    algorithm = jwt.algorithms.get_default_algorithms()[alg]
+    pyjwt_key = algorithm.from_jwk(key_json)
+
+    # Generate token using PyJWT
+    token = jwt.encode(
+        payload=claims_dict,
+        key=pyjwt_key,
+        algorithm=alg,
+        headers=headers
     )
-    token.make_signed_token(key)
-    return token.serialize()
+
+    return token

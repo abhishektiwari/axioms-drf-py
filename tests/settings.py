@@ -21,10 +21,10 @@ DATABASES = {
     }
 }
 
-# Axioms configuration (will be overridden in tests)
+# Axioms configuration
 AXIOMS_AUDIENCE = 'test-audience'
 AXIOMS_DOMAIN = None
-AXIOMS_ISS_URL = None
+AXIOMS_ISS_URL = 'https://test-domain.com'
 AXIOMS_JWKS_URL = 'https://test-domain.com/.well-known/jwks.json'
 
 # Cache configuration for JWKS caching

@@ -1523,6 +1523,567 @@
 					}
 				}
 			]
+		},
+		{
+			"name": "8. ViewSet with Action-Specific Permissions (Books)",
+			"item": [
+				{
+					"name": "List Books",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token with book:read scope",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123',",
+									"            scope: 'book:read'",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated with scope: book:read');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/books/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"books",
+								""
+							]
+						},
+						"description": "List all books - requires 'book:read' scope."
+					}
+				},
+				{
+					"name": "Retrieve Book",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token with book:read scope",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123',",
+									"            scope: 'book:read'",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated with scope: book:read');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200 or 404', function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/books/1/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"books",
+								"1",
+								""
+							]
+						},
+						"description": "Retrieve a specific book - requires 'book:read' scope."
+					}
+				},
+				{
+					"name": "Create Book",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token with book:create scope",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123',",
+									"            scope: 'book:create'",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated with scope: book:create');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 201', function () {",
+									"    pm.response.to.have.status(201);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Test Book\",\n    \"author\": \"Test Author\",\n    \"isbn\": \"1234567890123\",\n    \"published_date\": \"2024-01-01\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/books/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"books",
+								""
+							]
+						},
+						"description": "Create a new book - requires 'book:create' scope."
+					}
+				},
+				{
+					"name": "Update Book",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token with book:update scope",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123',",
+									"            scope: 'book:update'",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated with scope: book:update');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Updated Book\",\n    \"author\": \"Updated Author\",\n    \"isbn\": \"1234567890123\",\n    \"published_date\": \"2024-01-01\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/books/1/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"books",
+								"1",
+								""
+							]
+						},
+						"description": "Update a book - requires 'book:update' scope."
+					}
+				},
+				{
+					"name": "Partial Update Book",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token with book:update scope",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123',",
+									"            scope: 'book:update'",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated with scope: book:update');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Partially Updated Book\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/books/1/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"books",
+								"1",
+								""
+							]
+						},
+						"description": "Partially update a book - requires 'book:update' scope."
+					}
+				},
+				{
+					"name": "Delete Book",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token with book:delete scope",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123',",
+									"            scope: 'book:delete'",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated with scope: book:delete');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 204', function () {",
+									"    pm.response.to.have.status(204);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/books/1/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"books",
+								"1",
+								""
+							]
+						},
+						"description": "Delete a book - requires 'book:delete' scope."
+					}
+				},
+				{
+					"name": "List Books - No Scope (403)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate token with wrong scope (book:create instead of book:read)",
+									"pm.sendRequest({",
+									"    url: pm.collectionVariables.get('jwtforge_url') + '/token',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json'",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            iss: pm.collectionVariables.get('issuer'),",
+									"            aud: pm.collectionVariables.get('audience'),",
+									"            sub: 'user123',",
+									"            scope: 'book:create'",
+									"        })",
+									"    }",
+									"}, function (err, response) {",
+									"    if (err) {",
+									"        console.error('Token generation failed:', err);",
+									"    } else {",
+									"        const jsonData = response.json();",
+									"        pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"        console.log('Token generated with scope: book:create');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 403', function () {",
+									"    pm.response.to.have.status(403);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/books/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"books",
+								""
+							]
+						},
+						"description": "Try to list books without the required 'book:read' scope. Should return 403 Forbidden."
+					}
+				}
+			]
 		}
 	]
 }

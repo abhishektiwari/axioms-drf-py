@@ -279,9 +279,10 @@ Contents
    :maxdepth: 2
    :caption: Documentation:
 
-   examples
-   issuers
    api
+   examples
+   advanced
+   issuers
 
 Indices and tables
 ------------------

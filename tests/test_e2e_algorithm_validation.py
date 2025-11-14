@@ -15,9 +15,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.test import APIRequestFactory
 from jwcrypto import jwk
-from jwcrypto import jwt as jwcrypto_jwt
 from axioms_drf.authentication import HasValidAccessToken
 from axioms_drf.permissions import HasAccessTokenScopes
+from tests.conftest import generate_jwt_token
 
 # Configure Django settings before importing models
 if not settings.configured:
@@ -29,16 +29,6 @@ if not settings.configured:
         CACHES={'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}},
     )
     django.setup()
-
-
-def generate_jwt_token(key, claims, alg='RS256'):
-    """Generate a JWT token with specified claims and algorithm."""
-    token = jwcrypto_jwt.JWT(
-        header={"alg": alg, "kid": key.kid},
-        claims=claims
-    )
-    token.make_signed_token(key)
-    return token.serialize()
 
 
 def create_token_with_none_alg(claims):
@@ -154,22 +144,17 @@ class TestAlgorithmValidation:
     def test_reject_missing_kid(self, factory, view, test_key):
         """Test that tokens without key ID are rejected."""
         now = int(time.time())
-        claims = json.dumps({
+        claims = {
             'sub': 'user123',
             'aud': ['test-audience'],
             'iss': 'https://test-domain.com',
             'scope': 'openid profile',
             'exp': now + 3600,
             'iat': now
-        })
+        }
 
-        # Create token without 'kid'
-        token_obj = jwcrypto_jwt.JWT(
-            header={"alg": "RS256"},  # Missing 'kid'
-            claims=claims
-        )
-        token_obj.make_signed_token(test_key)
-        token = token_obj.serialize()
+        # Create token without 'kid' using include_kid=False
+        token = generate_jwt_token(test_key, claims, include_kid=False)
 
         request = factory.get('/private', HTTP_AUTHORIZATION=f'Bearer {token}')
         response = view(request)

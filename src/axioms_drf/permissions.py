@@ -121,6 +121,27 @@ class HasAccessTokenScopes(BasePermission):
             def post(self, request):
                 return Response({'status': 'created'})
 
+        # ViewSet with action-specific scopes
+        from rest_framework import viewsets
+
+        class ArticleViewSet(viewsets.ModelViewSet):
+            authentication_classes = [HasValidAccessToken]
+            permission_classes = [HasAccessTokenScopes]
+            queryset = Article.objects.all()
+            serializer_class = ArticleSerializer
+
+            @property
+            def access_token_scopes(self):
+                action_scopes = {
+                    'list': ['article:read'],
+                    'retrieve': ['article:read'],
+                    'create': ['article:create'],
+                    'update': ['article:update'],
+                    'partial_update': ['article:update'],
+                    'destroy': ['article:delete'],
+                }
+                return action_scopes.get(self.action, [])
+
     Raises:
         InsufficientPermission: If user doesn't have required scopes.
         ImproperlyConfigured: If no scope attribute is defined on the view.
@@ -227,6 +248,27 @@ class HasAccessTokenRoles(BasePermission):
 
             def post(self, request):
                 return Response({'status': 'created'})
+
+        # ViewSet with action-specific roles
+        from rest_framework import viewsets
+
+        class UserViewSet(viewsets.ModelViewSet):
+            authentication_classes = [HasValidAccessToken]
+            permission_classes = [HasAccessTokenRoles]
+            queryset = User.objects.all()
+            serializer_class = UserSerializer
+
+            @property
+            def access_token_roles(self):
+                action_roles = {
+                    'list': ['viewer', 'editor', 'admin'],
+                    'retrieve': ['viewer', 'editor', 'admin'],
+                    'create': ['admin'],
+                    'update': ['editor', 'admin'],
+                    'partial_update': ['editor', 'admin'],
+                    'destroy': ['admin'],
+                }
+                return action_roles.get(self.action, [])
 
     Raises:
         InsufficientPermission: If user doesn't have required roles.
@@ -335,6 +377,27 @@ class HasAccessTokenPermissions(BasePermission):
 
             def post(self, request):
                 return Response({'message': 'User created.'})
+
+        # ViewSet with action-specific permissions
+        from rest_framework import viewsets
+
+        class DocumentViewSet(viewsets.ModelViewSet):
+            authentication_classes = [HasValidAccessToken]
+            permission_classes = [HasAccessTokenPermissions]
+            queryset = Document.objects.all()
+            serializer_class = DocumentSerializer
+
+            @property
+            def access_token_permissions(self):
+                action_permissions = {
+                    'list': ['document:read'],
+                    'retrieve': ['document:read'],
+                    'create': ['document:create'],
+                    'update': ['document:update'],
+                    'partial_update': ['document:update'],
+                    'destroy': ['document:delete'],
+                }
+                return action_permissions.get(self.action, [])
 
     Raises:
         InsufficientPermission: If user doesn't have required permissions.
