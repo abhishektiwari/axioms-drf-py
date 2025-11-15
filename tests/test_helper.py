@@ -189,78 +189,101 @@ class TestHasValidToken:
         with pytest.raises(UnauthorizedAccess):
             has_valid_token(token)
 
-    @pytest.mark.skip(reason="jwcrypto library doesn't support signing with HS256 using RSA keys")
     def test_token_with_symmetric_algorithm_raises_unauthorized(self, test_key, mock_urlopen):
         """Test that a token with symmetric algorithm (HS256) raises UnauthorizedAccess.
 
-        Note: This test is skipped because jwcrypto doesn't allow signing with HS256
-        using RSA keys. The algorithm validation is tested via malformed token tests.
+        Uses manual JWT construction to create a token claiming HS256 algorithm.
         """
-        now = int(time.time())
-        claims = {
-            'sub': 'user123',
-            'aud': ['test-audience'],
-            'iss': 'https://test-domain.com',
-            'exp': now + 3600,
-            'iat': now
-        }
+        import base64
 
-        # Try to generate token with HS256 (symmetric algorithm)
-        # This should be rejected by has_valid_token
-        custom_header = {
-            'alg': 'HS256',  # Symmetric algorithm - not allowed
-            'kid': test_key.kid
-        }
-        token = generate_jwt_token(test_key, claims, custom_header=custom_header)
+        now = int(time.time())
+
+        # Manually construct JWT with HS256 in header
+        header = base64.urlsafe_b64encode(
+            json.dumps({'alg': 'HS256', 'typ': 'JWT', 'kid': test_key.kid}).encode()
+        ).decode().rstrip('=')
+
+        payload = base64.urlsafe_b64encode(
+            json.dumps({
+                'sub': 'user123',
+                'aud': ['test-audience'],
+                'iss': 'https://test-domain.com',
+                'exp': now + 3600,
+                'iat': now,
+                'jti': 'test-jti'
+            }).encode()
+        ).decode().rstrip('=')
+
+        # Create fake signature
+        signature = base64.urlsafe_b64encode(b'fake_signature').decode().rstrip('=')
+
+        token = f"{header}.{payload}.{signature}"
 
         with pytest.raises(UnauthorizedAccess):
             has_valid_token(token)
 
-    @pytest.mark.skip(reason="jwcrypto library doesn't support signing with 'none' algorithm")
     def test_token_with_none_algorithm_raises_unauthorized(self, test_key, mock_urlopen):
         """Test that a token with 'none' algorithm raises UnauthorizedAccess.
 
-        Note: This test is skipped because jwcrypto doesn't support 'none' algorithm.
-        The algorithm validation is tested via malformed token tests.
+        Uses manual JWT construction to create a token claiming 'none' algorithm.
         """
-        now = int(time.time())
-        claims = {
-            'sub': 'user123',
-            'aud': ['test-audience'],
-            'iss': 'https://test-domain.com',
-            'exp': now + 3600,
-            'iat': now
-        }
+        import base64
 
-        # Try to generate token with 'none' algorithm
-        custom_header = {
-            'alg': 'none',  # None algorithm - not allowed
-            'kid': test_key.kid
-        }
-        token = generate_jwt_token(test_key, claims, custom_header=custom_header)
+        now = int(time.time())
+
+        # Manually construct JWT with 'none' in header
+        header = base64.urlsafe_b64encode(
+            json.dumps({'alg': 'none', 'typ': 'JWT', 'kid': test_key.kid}).encode()
+        ).decode().rstrip('=')
+
+        payload = base64.urlsafe_b64encode(
+            json.dumps({
+                'sub': 'user123',
+                'aud': ['test-audience'],
+                'iss': 'https://test-domain.com',
+                'exp': now + 3600,
+                'iat': now,
+                'jti': 'test-jti'
+            }).encode()
+        ).decode().rstrip('=')
+
+        # 'none' algorithm has no signature
+        token = f"{header}.{payload}."
 
         with pytest.raises(UnauthorizedAccess):
             has_valid_token(token)
 
-    @pytest.mark.skip(reason="PyJWT 2.10.1 doesn't properly enforce require_exp option when exp claim is missing")
     def test_token_without_exp_claim_raises_unauthorized(self, test_key, mock_urlopen):
         """Test that a token without exp claim raises UnauthorizedAccess.
 
-        Note: This test is skipped because PyJWT 2.10.1 doesn't properly enforce
-        the require_exp option when the exp claim is missing. In production, OAuth2
-        providers always include exp claim, so this is not a practical concern.
+        Manually constructs a properly signed JWT token that's missing the exp claim.
         """
+        import jwt as pyjwt
+
         now = int(time.time())
         claims = {
             'sub': 'user123',
             'aud': ['test-audience'],
             'iss': 'https://test-domain.com',
-            # No 'exp' claim
-            'iat': now
+            # No 'exp' claim - this should cause rejection
+            'iat': now,
+            'jti': 'test-jti'
         }
 
-        token = generate_jwt_token(test_key, claims)
+        # Use PyJWT directly with options to allow missing exp during encoding
+        key_json = test_key.export_private()
+        algorithm = pyjwt.algorithms.get_default_algorithms()['RS256']
+        pyjwt_key = algorithm.from_jwk(key_json)
 
+        # Encode without exp claim (PyJWT allows this during encoding)
+        token = pyjwt.encode(
+            payload=claims,
+            key=pyjwt_key,
+            algorithm='RS256',
+            headers={'kid': test_key.kid}
+        )
+
+        # Our validation should reject this because require_exp is True
         with pytest.raises(UnauthorizedAccess):
             has_valid_token(token)
 
@@ -474,3 +497,234 @@ class TestHasValidToken:
         with patch.object(helper, 'CacheFetcher', InvalidJWKSFetcher):
             with pytest.raises(UnauthorizedAccess):
                 has_valid_token(token)
+
+    def test_malformed_token_raises_unauthorized(self, test_key, mock_urlopen):
+        """Test that a malformed JWT token raises UnauthorizedAccess."""
+        # Create a completely invalid token
+        invalid_token = "not.a.valid.jwt.token.at.all"
+
+        with pytest.raises(UnauthorizedAccess):
+            has_valid_token(invalid_token)
+
+
+class TestCustomClaimNames:
+    """Test custom claim name configurations for scopes, roles, and permissions."""
+
+    @override_settings(AXIOMS_SCOPE_CLAIMS=['scp'])
+    def test_custom_scope_claim_name(self, test_key, mock_urlopen):
+        """Test that custom scope claim name is recognized."""
+        from axioms_drf.helper import get_token_scopes
+
+        now = int(time.time())
+        claims = {
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
+            'scp': 'read:data write:data',  # Custom scope claim
+            'exp': now + 3600,
+            'iat': now
+        }
+
+        token = generate_jwt_token(test_key, claims)
+        payload = has_valid_token(token)
+        scopes = get_token_scopes(payload)
+
+        assert scopes == 'read:data write:data'
+
+    @override_settings(AXIOMS_SCOPE_CLAIMS=['scp'])
+    def test_custom_scope_claim_as_list(self, test_key, mock_urlopen):
+        """Test that custom scope claim in list format is handled.
+
+        Note: Frozen Box converts lists to tuples for immutability, so the tuple
+        case needs to be handled in helper.py.
+        """
+        from axioms_drf.helper import get_token_scopes
+
+        now = int(time.time())
+        claims = {
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
+            'scp': ['read:data', 'write:data'],  # List format
+            'exp': now + 3600,
+            'iat': now
+        }
+
+        token = generate_jwt_token(test_key, claims)
+        payload = has_valid_token(token)
+
+        # Frozen Box converts list to tuple
+        assert payload.scp == ('read:data', 'write:data')
+
+        scopes = get_token_scopes(payload)
+        # helper.py handles both list and tuple formats and returns space-separated string
+        assert scopes == 'read:data write:data'
+
+    @override_settings(AXIOMS_ROLES_CLAIMS=['https://example.com/roles'])
+    def test_custom_roles_claim_name(self, test_key, mock_urlopen):
+        """Test that custom roles claim name (namespaced) is recognized."""
+        from axioms_drf.helper import get_token_roles
+
+        now = int(time.time())
+        claims = {
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
+            'https://example.com/roles': ['admin', 'editor'],  # Namespaced claim
+            'exp': now + 3600,
+            'iat': now
+        }
+
+        token = generate_jwt_token(test_key, claims)
+        payload = has_valid_token(token)
+        roles = get_token_roles(payload)
+
+        assert roles == ('admin', 'editor')  # Frozen Box converts lists to tuples
+
+    @override_settings(AXIOMS_PERMISSIONS_CLAIMS=['https://example.com/permissions'])
+    def test_custom_permissions_claim_name(self, test_key, mock_urlopen):
+        """Test that custom permissions claim name (namespaced) is recognized."""
+        from axioms_drf.helper import get_token_permissions
+
+        now = int(time.time())
+        claims = {
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'iss': 'https://test-domain.com',
+            'https://example.com/permissions': ['read:users', 'write:users'],  # Namespaced claim
+            'exp': now + 3600,
+            'iat': now
+        }
+
+        token = generate_jwt_token(test_key, claims)
+        payload = has_valid_token(token)
+        permissions = get_token_permissions(payload)
+
+        assert permissions == ('read:users', 'write:users')  # Frozen Box converts lists to tuples
+
+
+class TestDomainProcessing:
+    """Test domain processing with various protocol configurations."""
+
+    @override_settings(
+        AXIOMS_DOMAIN='https://auth.example.com',
+        AXIOMS_ISS_URL=None,
+        AXIOMS_JWKS_URL=None
+    )
+    def test_domain_with_https_protocol_is_normalized(self, test_key, mock_urlopen):
+        """Test that AXIOMS_DOMAIN with https:// protocol is normalized correctly."""
+        from axioms_drf.helper import get_expected_issuer
+
+        issuer = get_expected_issuer()
+        assert issuer == 'https://auth.example.com'
+
+        # Test that token validation works with normalized domain
+        now = int(time.time())
+        claims = {
+            'sub': 'user123',
+            'aud': ['test-audience'],
+            'iss': 'https://auth.example.com',
+            'exp': now + 3600,
+            'iat': now
+        }
+
+        token = generate_jwt_token(test_key, claims)
+        payload = has_valid_token(token)
+        assert payload.iss == 'https://auth.example.com'
+
+    @override_settings(
+        AXIOMS_DOMAIN='http://auth.example.com',
+        AXIOMS_ISS_URL=None,
+        AXIOMS_JWKS_URL=None
+    )
+    def test_domain_with_http_protocol_is_normalized(self, test_key, mock_urlopen):
+        """Test that AXIOMS_DOMAIN with http:// protocol is normalized to https://."""
+        from axioms_drf.helper import get_expected_issuer
+
+        issuer = get_expected_issuer()
+        # Should strip http:// and add https://
+        assert issuer == 'https://auth.example.com'
+
+    @override_settings(
+        AXIOMS_ISS_URL='https://auth.example.com/oauth2',
+        AXIOMS_JWKS_URL=None
+    )
+    def test_jwks_url_constructed_from_issuer_url(self, test_key, mock_urlopen):
+        """Test that JWKS URL is correctly constructed from AXIOMS_ISS_URL."""
+        from axioms_drf.helper import get_jwks_url
+
+        jwks_url = get_jwks_url()
+        assert jwks_url == 'https://auth.example.com/oauth2/.well-known/jwks.json'
+
+    @override_settings(
+        AXIOMS_DOMAIN='auth.example.com',
+        AXIOMS_ISS_URL=None,
+        AXIOMS_JWKS_URL=None
+    )
+    def test_jwks_url_from_domain_fallback(self, test_key, mock_urlopen):
+        """Test that JWKS URL is constructed from AXIOMS_DOMAIN as fallback."""
+        from axioms_drf.helper import get_jwks_url
+
+        jwks_url = get_jwks_url()
+        assert jwks_url == 'https://auth.example.com/.well-known/jwks.json'
+
+
+class TestCheckFunctionsEdgeCases:
+    """Test edge cases for check_scopes, check_roles, check_permissions."""
+
+    def test_check_scopes_with_empty_requirements(self):
+        """Test that check_scopes returns True when required_scopes is empty."""
+        from axioms_drf.helper import check_scopes
+
+        provided_scopes = 'read:data write:data'
+        required_scopes = []
+
+        result = check_scopes(provided_scopes, required_scopes)
+        assert result is True
+
+    def test_check_roles_with_empty_requirements(self):
+        """Test that check_roles returns True when view_roles is empty."""
+        from axioms_drf.helper import check_roles
+
+        token_roles = ['admin', 'editor']
+        view_roles = []
+
+        result = check_roles(token_roles, view_roles)
+        assert result is True
+
+    def test_check_permissions_with_empty_requirements(self):
+        """Test that check_permissions returns True when view_permissions is empty."""
+        from axioms_drf.helper import check_permissions
+
+        token_permissions = ['read:users', 'write:users']
+        view_permissions = []
+
+        result = check_permissions(token_permissions, view_permissions)
+        assert result is True
+
+
+class TestJWKSCaching:
+    """Test JWKS caching behavior."""
+
+    def test_cache_fetcher_returns_cached_data(self, test_key):
+        """Test that CacheFetcher returns cached data when available."""
+        from axioms_drf.helper import CacheFetcher
+
+        test_url = 'https://test-domain.com/.well-known/jwks.json'
+        cache_key = "jwks" + test_url
+
+        # Create test JWKS data
+        jwks_data = {'keys': [json.loads(test_key.export_public())]}
+        test_data = json.dumps(jwks_data).encode('utf-8')
+
+        # Pre-populate cache with test data (simulating a previous fetch)
+        cache.set(cache_key, test_data, timeout=600)
+
+        fetcher = CacheFetcher()
+
+        # Fetch should return cached data without calling urlopen
+        # We don't need to mock urlopen - if it's called, test will fail with network error
+        data = fetcher.fetch(test_url, max_age=600)
+
+        # Verify it returned the cached data
+        assert json.loads(data) == jwks_data
