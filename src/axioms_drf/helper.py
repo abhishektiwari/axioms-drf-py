@@ -124,6 +124,11 @@ def check_token_validity(token, key, alg):
             options=options,
         )
 
+        # Explicitly verify exp claim exists (PyJWT 2.10.1 bug workaround)
+        # See: https://github.com/jpadilla/pyjwt/issues/870
+        if "exp" not in payload:
+            raise UnauthorizedAccess
+
         # Return immutable Box to prevent payload modification
         return Box(payload, frozen_box=True)
 
@@ -232,8 +237,9 @@ def get_token_scopes(auth_jwt):
         for claim_name in settings.AXIOMS_SCOPE_CLAIMS:
             if hasattr(auth_jwt, claim_name):
                 scope_value = getattr(auth_jwt, claim_name, "")
-                # Handle both string and list formats
-                if isinstance(scope_value, list):
+                # Handle both string and list/tuple formats
+                # Note: Frozen Box converts lists to tuples for immutability
+                if isinstance(scope_value, (list, tuple)):
                     return " ".join(scope_value)
                 return scope_value
 

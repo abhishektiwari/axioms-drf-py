@@ -33,6 +33,7 @@ clean:
 	rm -f coverage.xml
 	rm -f junit.xml
 	rm -f .coverage
+	rm -f src/axioms_drf/_version.py
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 
