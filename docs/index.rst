@@ -35,6 +35,13 @@ Works with access tokens issued by various authorization servers including `AWS 
 .. image:: https://img.shields.io/pypi/pyversions/axioms-drf-py?logo=python&logoColor=white
    :alt: Python Versions
 
+.. image:: https://www.codefactor.io/repository/github/abhishektiwari/axioms-drf-py/badge
+   :target: https://www.codefactor.io/repository/github/abhishektiwari/axioms-drf-py
+   :alt: CodeFactor
+
+.. image:: https://codecov.io/gh/abhishektiwari/axioms-drf-py/graph/badge.svg?token=FUZV5Q67E1 
+   :target: https://codecov.io/gh/abhishektiwari/axioms-drf-py
+
 When to use ``axioms-drf-py``?
 ----------------------------
 

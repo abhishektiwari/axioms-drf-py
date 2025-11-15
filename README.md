@@ -12,6 +12,8 @@ OAuth2/OIDC authentication and authorization for Django REST Framework APIs. Sup
 ![PyPI - Status](https://img.shields.io/pypi/status/axioms-drf-py)
 ![License](https://img.shields.io/github/license/abhishektiwari/axioms-drf-py)
 ![PyPI Downloads](https://img.shields.io/pepy/dt/axioms-drf-py?label=PyPI%20Downloads)
+[![CodeFactor](https://www.codefactor.io/repository/github/abhishektiwari/axioms-drf-py/badge)](https://www.codefactor.io/repository/github/abhishektiwari/axioms-drf-py)
+[![codecov](https://codecov.io/gh/abhishektiwari/axioms-drf-py/graph/badge.svg?token=FUZV5Q67E1)](https://codecov.io/gh/abhishektiwari/axioms-drf-py)
 
 ## When to use `axioms-drf-py`?
 Use `axioms-drf-py` in your Django REST Framework backend to securely validate JWT access tokens issued by OAuth2/OIDC authorization servers like [AWS Cognito](https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html), [Auth0](https://auth0.com/docs/secure/tokens/access-tokens/access-token-profiles), [Okta](https://developer.okta.com/docs/api/oauth2/), [Microsoft Entra](https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles), [Keyclock](https://www.keycloak.org/securing-apps/oidc-layers#_oauth21-support) etc.  Clients - such as single-page applications (React, Vue), mobile apps, or AI agents—obtain access tokens from the authorization server and send them to your backend. In response, `axioms-drf-py` fetches JSON Web Key Set (JWKS) from the issuer, validates token signatures, enforces audience/issuer claims, and provides scope, role, and permission-based authorization for your API endpoints.
