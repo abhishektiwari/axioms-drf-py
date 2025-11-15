@@ -164,8 +164,7 @@ python manage.py migrate
 ## Support
 
 For issues with:
-- axioms-drf-py library: https://github.com/axioms-io/axioms-drf-py/issues
-- jwtforge.dev: Contact jwtforge.dev support
+- `axioms-drf-py` library: https://github.com/axioms-io/axioms-drf-py/issues
 - Django REST Framework: https://www.django-rest-framework.org/
 
 ## Additional Resources
@@ -173,4 +172,4 @@ For issues with:
 - [axioms-drf-py Documentation](https://github.com/axioms-io/axioms-drf-py)
 - [Django REST Framework Documentation](https://www.django-rest-framework.org/)
 - [JWT.io](https://jwt.io/) - JWT debugger
-- [jwtforge.dev](https://jwtforge.dev) - JWT token generation service
+- [JWTForge](https://jwtforge.dev) - JWT token generation service

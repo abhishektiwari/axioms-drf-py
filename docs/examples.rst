@@ -442,6 +442,317 @@ This POST request will **succeed** because the token contains ``sample:create`` 
 
 This GET request will **fail** with 403 Forbidden because the token has ``sample:create`` permission but GET requires ``sample:read``.
 
+ViewSet Action-Specific Permissions
+------------------------------------
+
+ViewSets provide a powerful way to define different permissions for each action (list, retrieve, create, update, destroy) using the ``@property`` decorator.
+
+Scope-Based ViewSet Permissions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Define different scopes for each ViewSet action:
+
+.. code-block:: python
+
+   from rest_framework import viewsets
+   from axioms_drf.authentication import HasValidAccessToken
+   from axioms_drf.permissions import HasAccessTokenScopes
+
+   class BookViewSet(viewsets.ModelViewSet):
+       """Books API with action-specific scope requirements."""
+       authentication_classes = [HasValidAccessToken]
+       permission_classes = [HasAccessTokenScopes]
+       queryset = Book.objects.all()
+       serializer_class = BookSerializer
+
+       @property
+       def access_token_scopes(self):
+           """Return required scopes based on the current action."""
+           action_scopes = {
+               'list': ['book:read'],           # GET /books/
+               'retrieve': ['book:read'],       # GET /books/{id}/
+               'create': ['book:create'],       # POST /books/
+               'update': ['book:update'],       # PUT /books/{id}/
+               'partial_update': ['book:update'], # PATCH /books/{id}/
+               'destroy': ['book:delete'],      # DELETE /books/{id}/
+           }
+           return action_scopes.get(self.action, [])
+
+**Example JWT Token Payload (Success for list/retrieve):**
+
+.. code-block:: json
+
+   {
+     "sub": "user123",
+     "aud": "your-api-audience",
+     "scope": "book:read openid",
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+This request will **succeed** for ``GET /books/`` (list) and ``GET /books/1/`` (retrieve) because the token contains ``book:read`` scope.
+
+**Example JWT Token Payload (Success for create):**
+
+.. code-block:: json
+
+   {
+     "sub": "user123",
+     "aud": "your-api-audience",
+     "scope": "book:create openid",
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+This request will **succeed** for ``POST /books/`` because the token contains ``book:create`` scope.
+
+**Example JWT Token Payload (Failure):**
+
+.. code-block:: json
+
+   {
+     "sub": "user123",
+     "aud": "your-api-audience",
+     "scope": "book:read openid",
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+This request will **fail** with 403 Forbidden for ``POST /books/`` (create) because the token only has ``book:read`` scope, not ``book:create``.
+
+Role-Based ViewSet Permissions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Define different roles for each ViewSet action:
+
+.. code-block:: python
+
+   from rest_framework import viewsets
+   from axioms_drf.authentication import HasValidAccessToken
+   from axioms_drf.permissions import HasAccessTokenRoles
+
+   class UserViewSet(viewsets.ModelViewSet):
+       """User management with role-based permissions."""
+       authentication_classes = [HasValidAccessToken]
+       permission_classes = [HasAccessTokenRoles]
+       queryset = User.objects.all()
+       serializer_class = UserSerializer
+
+       @property
+       def access_token_roles(self):
+           """Return required roles based on the current action."""
+           action_roles = {
+               'list': ['viewer', 'admin'],      # Viewers can list
+               'retrieve': ['viewer', 'admin'],  # Viewers can view details
+               'create': ['admin'],              # Only admins can create
+               'update': ['admin'],              # Only admins can update
+               'partial_update': ['admin'],      # Only admins can patch
+               'destroy': ['admin'],             # Only admins can delete
+           }
+           return action_roles.get(self.action, [])
+
+**Example JWT Token Payload (Success for viewer):**
+
+.. code-block:: json
+
+   {
+     "sub": "user123",
+     "aud": "your-api-audience",
+     "roles": ["viewer"],
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+This request will **succeed** for ``GET /users/`` (list) and ``GET /users/1/`` (retrieve) because the token contains ``viewer`` role.
+
+**Example JWT Token Payload (Failure for viewer trying to create):**
+
+.. code-block:: json
+
+   {
+     "sub": "user123",
+     "aud": "your-api-audience",
+     "roles": ["viewer"],
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+This request will **fail** with 403 Forbidden for ``POST /users/`` because the ``viewer`` role is not authorized for the ``create`` action (requires ``admin``).
+
+Permission-Based ViewSet Permissions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Define different permissions for each ViewSet action:
+
+.. code-block:: python
+
+   from rest_framework import viewsets
+   from axioms_drf.authentication import HasValidAccessToken
+   from axioms_drf.permissions import HasAccessTokenPermissions
+
+   class DocumentViewSet(viewsets.ModelViewSet):
+       """Document management with fine-grained permissions."""
+       authentication_classes = [HasValidAccessToken]
+       permission_classes = [HasAccessTokenPermissions]
+       queryset = Document.objects.all()
+       serializer_class = DocumentSerializer
+
+       @property
+       def access_token_permissions(self):
+           """Return required permissions based on the current action."""
+           action_permissions = {
+               'list': ['document:list'],
+               'retrieve': ['document:read'],
+               'create': ['document:create'],
+               'update': ['document:update'],
+               'partial_update': ['document:update'],
+               'destroy': ['document:delete'],
+           }
+           return action_permissions.get(self.action, [])
+
+**Example JWT Token Payload (Success for read operations):**
+
+.. code-block:: json
+
+   {
+     "sub": "user123",
+     "aud": "your-api-audience",
+     "permissions": ["document:list", "document:read"],
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+This request will **succeed** for ``GET /documents/`` (list) and ``GET /documents/1/`` (retrieve) because the token contains both required permissions.
+
+Custom ViewSet Actions
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Define permissions for custom ViewSet actions:
+
+.. code-block:: python
+
+   from rest_framework import viewsets
+   from rest_framework.decorators import action
+   from rest_framework.response import Response
+   from axioms_drf.authentication import HasValidAccessToken
+   from axioms_drf.permissions import HasAccessTokenScopes
+
+   class ArticleViewSet(viewsets.ModelViewSet):
+       """Article management with custom actions."""
+       authentication_classes = [HasValidAccessToken]
+       permission_classes = [HasAccessTokenScopes]
+       queryset = Article.objects.all()
+       serializer_class = ArticleSerializer
+
+       @property
+       def access_token_scopes(self):
+           """Return required scopes based on the current action."""
+           action_scopes = {
+               'list': ['article:read'],
+               'retrieve': ['article:read'],
+               'create': ['article:create'],
+               'update': ['article:update'],
+               'partial_update': ['article:update'],
+               'destroy': ['article:delete'],
+               'publish': ['article:publish'],     # Custom action
+               'archive': ['article:archive'],     # Custom action
+           }
+           return action_scopes.get(self.action, [])
+
+       @action(detail=True, methods=['post'])
+       def publish(self, request, pk=None):
+           """Publish an article (requires article:publish scope)."""
+           article = self.get_object()
+           article.published = True
+           article.save()
+           return Response({'status': 'published'})
+
+       @action(detail=True, methods=['post'])
+       def archive(self, request, pk=None):
+           """Archive an article (requires article:archive scope)."""
+           article = self.get_object()
+           article.archived = True
+           article.save()
+           return Response({'status': 'archived'})
+
+**Example JWT Token Payload (Success for custom action):**
+
+.. code-block:: json
+
+   {
+     "sub": "user123",
+     "aud": "your-api-audience",
+     "scope": "article:publish openid",
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+This request will **succeed** for ``POST /articles/1/publish/`` because the token contains ``article:publish`` scope.
+
+Dynamic Permissions Based on Request Data
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use request data to dynamically determine required permissions:
+
+.. code-block:: python
+
+   from rest_framework import viewsets
+   from axioms_drf.authentication import HasValidAccessToken
+   from axioms_drf.permissions import HasAccessTokenScopes
+
+   class ReportViewSet(viewsets.ModelViewSet):
+       """Reports with dynamic scope requirements."""
+       authentication_classes = [HasValidAccessToken]
+       permission_classes = [HasAccessTokenScopes]
+       queryset = Report.objects.all()
+       serializer_class = ReportSerializer
+
+       @property
+       def access_token_scopes(self):
+           """Return scopes based on action and request data."""
+           if self.action == 'create':
+               # Check if creating a sensitive report
+               report_type = self.request.data.get('type')
+               if report_type == 'financial':
+                   return ['report:create:financial']
+               return ['report:create']
+
+           action_scopes = {
+               'list': ['report:read'],
+               'retrieve': ['report:read'],
+               'update': ['report:update'],
+               'destroy': ['report:delete'],
+           }
+           return action_scopes.get(self.action, [])
+
+**Example JWT Token Payload (Success for standard report):**
+
+.. code-block:: json
+
+   {
+     "sub": "user123",
+     "aud": "your-api-audience",
+     "scope": "report:create openid",
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+This POST request with ``{"type": "standard"}`` will **succeed** because the token contains ``report:create`` scope.
+
+**Example JWT Token Payload (Failure for financial report):**
+
+.. code-block:: json
+
+   {
+     "sub": "user123",
+     "aud": "your-api-audience",
+     "scope": "report:create openid",
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+This POST request with ``{"type": "financial"}`` will **fail** with 403 Forbidden because it requires ``report:create:financial`` scope, not just ``report:create``.
+
 Public Endpoints
 -----------------
 
@@ -635,5 +946,5 @@ Object-level permissions also work with standard APIView (not just ViewSets):
 Complete Django REST Framework Application
 -------------------------------------------
 
-For a complete working example, check out the `example application <https://github.com/abhishektiwari/axioms-drf-py/tree/main/example>`_
+For a complete working example, check out the `example application <https://github.com/abhishektiwari/axioms-drf-py/tree/master/example>`_
 in this repository. The sample demonstrates a fully functional Django REST Framework application with authentication and authorization.
