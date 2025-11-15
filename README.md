@@ -1,7 +1,5 @@
 # axioms-drf-py ![PyPI](https://img.shields.io/pypi/v/axioms-drf-py) ![Pepy Total Downloads](https://img.shields.io/pepy/dt/axioms-drf-py)
-OAuth2/OIDC authentication and authorization for Django REST Framework APIs. Supports authentication and claim-based fine-grained authorization (scopes, roles, permissions) using JWT tokens.
-
-Works with access tokens issued by various authorization servers including [AWS Cognito](https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html), [Auth0](https://auth0.com/docs/secure/tokens/access-tokens/access-token-profiles), [Okta](https://developer.okta.com/docs/api/oauth2/), [Microsoft Entra](https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles), etc.
+OAuth2/OIDC authentication and authorization for Django REST Framework APIs. Supports authentication and claim-based fine-grained authorization (scopes, roles, permissions) using JWT tokens. Works with access tokens issued by various authorization servers including [AWS Cognito](https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html), [Auth0](https://auth0.com/docs/secure/tokens/access-tokens/access-token-profiles), [Okta](https://developer.okta.com/docs/api/oauth2/), [Microsoft Entra](https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles), [Keyclock](https://www.keycloak.org/securing-apps/oidc-layers#_oauth21-support), etc.
 
 > **Using Flask or FastAPI?** This package is specifically for Django REST Framework. For Flask applications, use [axioms-flask-py](https://github.com/abhishektiwari/axioms-flask-py). For FastAPI applications, use [axioms-fastapi](https://github.com/abhishektiwari/axioms-fastapi).
 
@@ -14,6 +12,20 @@ Works with access tokens issued by various authorization servers including [AWS 
 ![PyPI - Status](https://img.shields.io/pypi/status/axioms-drf-py)
 ![License](https://img.shields.io/github/license/abhishektiwari/axioms-drf-py)
 ![PyPI Downloads](https://img.shields.io/pepy/dt/axioms-drf-py?label=PyPI%20Downloads)
+[![CodeFactor](https://www.codefactor.io/repository/github/abhishektiwari/axioms-drf-py/badge)](https://www.codefactor.io/repository/github/abhishektiwari/axioms-drf-py)
+[![codecov](https://codecov.io/gh/abhishektiwari/axioms-drf-py/graph/badge.svg?token=FUZV5Q67E1)](https://codecov.io/gh/abhishektiwari/axioms-drf-py)
+
+## When to use `axioms-drf-py`?
+Use `axioms-drf-py` in your Django REST Framework backend to securely validate JWT access tokens issued by OAuth2/OIDC authorization servers like [AWS Cognito](https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html), [Auth0](https://auth0.com/docs/secure/tokens/access-tokens/access-token-profiles), [Okta](https://developer.okta.com/docs/api/oauth2/), [Microsoft Entra](https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles), [Keyclock](https://www.keycloak.org/securing-apps/oidc-layers#_oauth21-support) etc.  Clients - such as single-page applications (React, Vue), mobile apps, or AI agents—obtain access tokens from the authorization server and send them to your backend. In response, `axioms-drf-py` fetches JSON Web Key Set (JWKS) from the issuer, validates token signatures, enforces audience/issuer claims, and provides scope, role, and permission-based authorization for your API endpoints.
+
+![Where to use Axioms package](https://static.abhishek-tiwari.com/axioms/oauth2-oidc-v3.png)
+
+## How it is different?
+Unlike other DRF plugins, ``axioms-drf-py`` focuses exclusively on protecting resource servers, by letting authorization servers do what they do best. This separation of concerns raises the security bar by:
+
+- Delegates authorization to battle-tested OAuth2/OIDC providers
+- Works seamlessly with any OAuth2/OIDC ID with simple configuration
+- Enterprise-ready defaults using current JWT and OAuth 2.1 best practices
 
 ## Features
 
@@ -21,7 +33,7 @@ Works with access tokens issued by various authorization servers including [AWS 
 * Algorithm validation to prevent algorithm confusion attacks (only secure asymmetric algorithms allowed)
 * Issuer validation (`iss` claim) to prevent token substitution attacks
 * Authentication classes for standard DRF integration
-* Permission classes for claim-based authorization: scopes, roles, and permissions
+* Permission classes for claim-based authorization: `scopes`, `roles`, and `permissions`
 * Object-level permission classes for resource ownership verification
 * Support for both OR and AND logic in authorization checks
 * Middleware for automatic token extraction and validation
@@ -144,7 +156,7 @@ class ProtectedView(APIView):
         return Response({'message': 'This is protected'})
 ```
 
-## Guard Your Django REST Framework API Views
+## Guard Your DRF Views
 
 ### Authentication Classes
 
@@ -165,7 +177,7 @@ class ProtectedView(APIView):
 | `HasAccessTokenRoles` | Check roles in `roles` claim of the access token. | `access_token_roles` or `access_token_any_roles` (OR logic)<br/>`access_token_all_roles` (AND logic) |
 | `HasAccessTokenPermissions` | Check permissions in `permissions` claim of the access token. | `access_token_permissions` or `access_token_any_permissions` (OR logic)<br/>`access_token_all_permissions` (AND logic) |
 
-> **Method-Level Authorization:** All claim-based permission classes support method-level authorization using Python's `@property` decorator. This allows you to define different authorization requirements for each HTTP method (GET, POST, PATCH, DELETE) on the same view. See the [Method-Level Permissions](#method-level-permissions) section for implementation details.
+> **Method-Level Authorization:** All claim-based permission classes support method-level and ViewSet action-specific authorization using Python's `@property` decorator. This allows you to define different authorization requirements for each HTTP method (GET, POST, PATCH, DELETE) on the View or different permissions for each action (list, retrieve, create, update, destroy) of ViewSet. See the [Method-Level Permissions](#method-level-permissions) and [Action-Specific Permissions](#action-specific-permissions) sections for implementation details.
 
 #### Object-Level Permissions
 
@@ -313,6 +325,37 @@ class SamplePermissionView(APIView):
         return Response({'message': 'Sample deleted.'}, status=status.HTTP_204_NO_CONTENT)
 ```
 
+### Action-Specific Permissions
+Apply different permissions for each ViewSet action (list, retrieve, create, update, destroy):
+
+```python
+from rest_framework import viewsets
+from rest_framework.response import Response
+from rest_framework import status
+from axioms_drf.authentication import HasValidAccessToken
+from axioms_drf.permissions import HasAccessTokenScopes
+
+class BookViewSet(viewsets.ModelViewSet):
+    """Books API with action-specific scope requirements."""
+    authentication_classes = [HasValidAccessToken]
+    permission_classes = [HasAccessTokenScopes]
+    queryset = Book.objects.all()
+    serializer_class = BookSerializer
+
+    @property
+    def access_token_scopes(self):
+        """Return required scopes based on the current action."""
+        action_scopes = {
+            'list': ['book:read'],             # GET /books/
+            'retrieve': ['book:read'],         # GET /books/{id}/
+            'create': ['book:create'],         # POST /books/
+            'update': ['book:update'],         # PUT /books/{id}/
+            'partial_update': ['book:update'], # PATCH /books/{id}/
+            'destroy': ['book:delete'],        # DELETE /books/{id}/
+        }
+        return action_scopes.get(self.action, [])
+```
+
 ### Public Endpoints
 
 Allow unauthenticated access for specific HTTP methods:
@@ -370,5 +413,4 @@ class ArticleViewSet(viewsets.ModelViewSet):
 ```
 
 ## Complete Example
-
-For a complete working example, check out the [example/](example/) folder in this repository.
+For a complete working example, check out the [example](example/) folder in this repository or [checkout our docs](https://axioms-drf-py.abhishek-tiwari.com/examples).

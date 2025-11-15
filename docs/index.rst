@@ -3,7 +3,7 @@ Welcome to axioms-drf-py documentation!
 
 OAuth2/OIDC authentication and authorization for Django REST Framework APIs. Supports authentication and claim-based fine-grained authorization (scopes, roles, permissions) using JWT tokens.
 
-Works with access tokens issued by various authorization servers including `AWS Cognito <https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html>`_, `Auth0 <https://auth0.com/docs/secure/tokens/access-tokens/access-token-profiles>`_, `Okta <https://developer.okta.com/docs/api/oauth2/>`_, `Microsoft Entra <https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles>`_, etc.
+Works with access tokens issued by various authorization servers including `AWS Cognito <https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html>`_, `Auth0 <https://auth0.com/docs/secure/tokens/access-tokens/access-token-profiles>`_, `Okta <https://developer.okta.com/docs/api/oauth2/>`_, `Microsoft Entra <https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles>`_, `Keyclock <https://www.keycloak.org/securing-apps/oidc-layers#_oauth21-support>`_, etc.
 
 .. note::
    **Using Flask or FastAPI?** This package is specifically for Django REST Framework. For Flask applications, use `axioms-flask-py <https://github.com/abhishektiwari/axioms-flask-py>`_. For FastAPI applications, use `axioms-fastapi <https://github.com/abhishektiwari/axioms-fastapi>`_.
@@ -35,6 +35,33 @@ Works with access tokens issued by various authorization servers including `AWS 
 .. image:: https://img.shields.io/pypi/pyversions/axioms-drf-py?logo=python&logoColor=white
    :alt: Python Versions
 
+.. image:: https://www.codefactor.io/repository/github/abhishektiwari/axioms-drf-py/badge
+   :target: https://www.codefactor.io/repository/github/abhishektiwari/axioms-drf-py
+   :alt: CodeFactor
+
+.. image:: https://codecov.io/gh/abhishektiwari/axioms-drf-py/graph/badge.svg?token=FUZV5Q67E1 
+   :target: https://codecov.io/gh/abhishektiwari/axioms-drf-py
+
+When to use ``axioms-drf-py``?
+----------------------------
+
+Use ``axioms-drf-py`` in your Django REST Framework backend to securely validate JWT access
+tokens issued by OAuth2/OIDC authorization servers like `AWS Cognito <https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html>`_,
+`Auth0 <https://auth0.com/docs/secure/tokens/access-tokens/access-token-profiles>`_,
+`Okta <https://developer.okta.com/docs/api/oauth2/>`_, `Microsoft Entra <https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles>`_, `Keyclock <https://www.keycloak.org/securing-apps/oidc-layers#_oauth21-support>`_,
+etc. Clients - such as single-page applications (React, Vue), mobile apps, or AI agents—obtain access tokens from the authorization server and send them to your backend. In response, ``axioms-drf-py`` fetches JSON Web Key Set (JWKS) from the issuer, validates token signatures, enforces audience/issuer claims, and provides scope, role, and permission-based authorization for your API endpoints.
+
+.. image:: https://static.abhishek-tiwari.com/axioms/oauth2-oidc-v3.png
+   :alt: When to use Axioms package
+
+How it is different?
+--------------------
+Unlike other DRF plugins, ``axioms-drf-py`` focuses exclusively on protecting resource servers, by letting authorization servers do what they do best. This separation of concerns raises the security bar by:
+
+- Delegates authorization to battle-tested OAuth2/OIDC providers
+- Works seamlessly with any OAuth2/OIDC ID with simple configuration
+- Enterprise-ready defaults using current JWT and OAuth 2.1 best practices
+
 Features
 --------
 
@@ -42,13 +69,21 @@ Features
 * Algorithm validation to prevent algorithm confusion attacks (only secure asymmetric algorithms allowed)
 * Issuer validation (``iss`` claim) to prevent token substitution attacks
 * Authentication classes for standard DRF integration
-* Permission classes for claim-based authorization: scopes, roles, and permissions
+* Permission classes for claim-based authorization: ``scopes``, ``roles``, and ``permissions``
 * Object-level permission classes for resource ownership verification
 * Support for both OR and AND logic in authorization checks
 * Middleware for automatic token extraction and validation
 * Flexible configuration with support for custom JWKS and issuer URLs
 * Simple integration with Django REST Framework Resource Server or API backends
 * Support for custom claim and/or namespaced claims names to support different authorization servers
+
+Prerequisites
+-------------
+
+* Python 3.8+
+* Django 3.2+
+* Django REST Framework 3.12+
+* An OAuth2/OIDC authorization server (AWS Cognito, Auth0, Okta, Microsoft Entra, etc.) that can issue JWT access tokens
 
 Installation
 ------------
@@ -72,6 +107,42 @@ Quick Start
    ]
 
 2. Configure your Django settings with required variables:
+
+**Option A: Using .env file**
+
+Create a ``.env`` file in your project root:
+
+.. code-block:: bash
+
+   AXIOMS_AUDIENCE=your-api-audience
+
+   # Set Issuer and JWKS URLs directly (optional, but recommended for security)
+   AXIOMS_ISS_URL=https://your-auth.domain.com
+   AXIOMS_JWKS_URL=https://your-auth.domain.com/.well-known/jwks.json
+
+   # Optionally, you can set the auth domain and let the SDK construct the URLs
+   # AXIOMS_DOMAIN=your-auth.domain.com
+
+Then load in your ``settings.py``:
+
+.. code-block:: python
+
+   import environ
+
+   env = environ.Env()
+   environ.Env.read_env()
+
+   # Required
+   AXIOMS_AUDIENCE = env('AXIOMS_AUDIENCE')
+
+   AXIOMS_ISS_URL = env('AXIOMS_ISS_URL', default=None)
+   AXIOMS_JWKS_URL = env('AXIOMS_JWKS_URL', default=None)
+
+   # AXIOMS_DOMAIN = env('AXIOMS_DOMAIN', default=None)
+
+**Option B: Direct Configuration**
+
+Configure directly in your ``settings.py``:
 
 .. code-block:: python
 
@@ -130,8 +201,8 @@ The SDK supports the following configuration options in Django settings:
 
    For most use cases, setting only ``AXIOMS_DOMAIN`` is sufficient. The SDK will automatically construct the issuer URL and JWKS endpoint URL.
 
-Guard Your Django REST Framework API Views
--------------------------------------------
+Guard Your DRF Views
+--------------------
 
 Use the following authentication and permission classes to protect your API views:
 
@@ -182,10 +253,9 @@ Claim-Based Permissions
      - ``access_token_permissions`` or ``access_token_any_permissions`` (OR logic), ``access_token_all_permissions`` (AND logic)
 
 .. note::
-   **Method-Level Authorization:** All claim-based permission classes support method-level authorization
-   using Python's ``@property`` decorator. This allows you to define different authorization
-   requirements for each HTTP method (GET, POST, PATCH, DELETE) on the same view. See the
-   examples section for implementation details.
+   **Method-Level Authorization:** All claim-based permission classes support method-level and ViewSet action-Specific authorization
+   using Python's ``@property`` decorator. This allows you to define different authorization requirements for each HTTP method (GET, POST, PATCH, DELETE) 
+   on the View or different permissions for each action (list, retrieve, create, update, destroy) of ViewSet. See the examples section for implementation details.
 
 Object-Level Permissions
 """"""""""""""""""""""""
@@ -272,12 +342,19 @@ Permission classes support both **OR logic** (any claim) and **AND logic** (all 
            # User needs: (read:data OR read:all) AND (openid AND profile)
            return Response({'data': 'complex authorization'})
 
+Complete Examples
+-----------------
+
+For complete working examples including ViewSet-specific permissions, method-level authorization, and object-level permissions, check out:
+
+* The :doc:`examples` section in this documentation for comprehensive code examples
+* The `example <https://github.com/abhishektiwari/axioms-drf-py/tree/main/example>`_ folder in the repository for a working Django project
+
 Contents
 --------
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Documentation:
+   :maxdepth: 1
 
    api
    examples
