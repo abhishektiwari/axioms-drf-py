@@ -152,6 +152,17 @@ The middleware module provides Django middleware for JWT token extraction and va
    :undoc-members:
    :show-inheritance:
 
+JWKS Manager
+------------
+
+The apps module provides Django application configurations for initializing the JWKS manager.
+
+.. automodule:: axioms_drf.apps
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
 Authentication Classes
 ----------------------
 

@@ -43,7 +43,7 @@ Unlike other DRF plugins, ``axioms-drf-py`` focuses exclusively on protecting re
 
 ## Prerequisites
 
-* Python 3.8+
+* Python 3.10+
 * Django 3.2+
 * Django REST Framework 3.12+
 * An OAuth2/OIDC authorization server (AWS Cognito, Auth0, Okta, Microsoft Entra, etc.) that can issue JWT access tokens
@@ -137,7 +137,41 @@ AXIOMS_JWKS_URL = 'https://your-auth.domain.com/.well-known/jwks.json'
 # AXIOMS_DOMAIN = 'your-auth.domain.com'  # Simplest option - constructs issuer and JWKS URLs
 ```
 
-### 4. Use Authentication and Permission Classes
+### 4. Enable JWKS Manager (Recommended)
+
+For optimal performance with automatic background refresh of JWKS keys, add the JWKS manager app to your `INSTALLED_APPS`:
+
+**For WSGI applications (standard Django):**
+```python
+INSTALLED_APPS = [
+    # ... other apps
+    'axioms_drf.apps.JWKSManagerWSGIConfig',  # Add this line
+    # ... your apps
+]
+```
+
+**For ASGI applications (async Django):**
+```python
+INSTALLED_APPS = [
+    # ... other apps
+    'axioms_drf.apps.JWKSManagerASGIConfig',  # Add this line for ASGI
+    # ... your apps
+]
+```
+
+**Optional Configuration:**
+
+Customize JWKS caching behavior in `settings.py`:
+
+```python
+# Optional: JWKS manager configuration (defaults shown)
+AXIOMS_JWKS_REFRESH_INTERVAL = 3600  # Refresh JWKS every 1 hour (seconds)
+AXIOMS_JWKS_CACHE_TTL = 7200          # Cache JWKS for 2 hours (must be >= 2x refresh_interval)
+```
+
+> **Note:** If you don't add the JWKS manager app, the SDK will automatically fall back to on-demand fetching with simple caching. This works but isn't optimal for production.
+
+### 5. Use Authentication and Permission Classes
 
 Protect your API views using authentication and permission classes:
 

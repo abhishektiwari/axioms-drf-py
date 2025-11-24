@@ -80,7 +80,7 @@ Features
 Prerequisites
 -------------
 
-* Python 3.8+
+* Python 3.10+
 * Django 3.2+
 * Django REST Framework 3.12+
 * An OAuth2/OIDC authorization server (AWS Cognito, Auth0, Okta, Microsoft Entra, etc.) that can issue JWT access tokens
@@ -108,7 +108,7 @@ Quick Start
 
 2. Configure your Django settings with required variables:
 
-**Option A: Using .env file**
+Option A: Using .env file
 
 Create a ``.env`` file in your project root:
 
@@ -140,7 +140,7 @@ Then load in your ``settings.py``:
 
    # AXIOMS_DOMAIN = env('AXIOMS_DOMAIN', default=None)
 
-**Option B: Direct Configuration**
+Option B: Direct Configuration
 
 Configure directly in your ``settings.py``:
 
@@ -156,7 +156,44 @@ Configure directly in your ``settings.py``:
    # Optionally, you can set the auth domain and let the SDK construct the URLs
    # AXIOMS_DOMAIN = 'your-auth.domain.com'
 
-3. Use authentication and permission classes in your views:
+3. Enable JWKS Manager (Recommended)
+
+For optimal performance with automatic background refresh of JWKS keys, add the JWKS manager app to your ``INSTALLED_APPS``:
+
+For WSGI applications (standard Django):
+
+.. code-block:: python
+
+   INSTALLED_APPS = [
+       # ... other apps
+       'axioms_drf.apps.JWKSManagerWSGIConfig',  # Add this line
+       # ... your apps
+   ]
+
+For ASGI applications (async Django):
+
+.. code-block:: python
+
+   INSTALLED_APPS = [
+       # ... other apps
+       'axioms_drf.apps.JWKSManagerASGIConfig',  # Add this line for ASGI
+       # ... your apps
+   ]
+
+**Optional Configuration:**
+
+Customize JWKS caching behavior in ``settings.py``:
+
+.. code-block:: python
+
+   # Optional: JWKS manager configuration (defaults shown)
+   AXIOMS_JWKS_REFRESH_INTERVAL = 3600  # Refresh JWKS every 1 hour (seconds)
+   AXIOMS_JWKS_CACHE_TTL = 7200          # Cache JWKS for 2 hours (must be >= 2x refresh_interval)
+
+.. note::
+   If you don't add the JWKS manager app, the SDK will automatically fall back to on-demand fetching with simple caching. This works but isn't optimal for production.
+
+4. Use authentication and permission classes in your views:
 
 .. code-block:: python
 
@@ -360,6 +397,7 @@ Contents
    examples
    advanced
    issuers
+   core
 
 Indices and tables
 ------------------

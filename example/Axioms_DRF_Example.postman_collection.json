@@ -33,6 +33,18 @@
 			"key": "access_token",
 			"value": "",
 			"type": "string"
+		},
+		{
+			"key": "article_id",
+			"value": "",
+			"type": "string",
+			"description": "Dynamically captured article ID from Create Article request"
+		},
+		{
+			"key": "book_id",
+			"value": "",
+			"type": "string",
+			"description": "Dynamically captured book ID from Create Book request"
 		}
 	],
 	"item": [
@@ -1162,7 +1174,16 @@
 								"exec": [
 									"pm.test('Status code is 201', function () {",
 									"    pm.response.to.have.status(201);",
-									"});"
+									"});",
+									"",
+									"// Capture the article ID from the response",
+									"if (pm.response.code === 201) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.id) {",
+									"        pm.collectionVariables.set('article_id', jsonData.id);",
+									"        console.log('Article ID captured: ' + jsonData.id);",
+									"    }",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -1265,14 +1286,14 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/articles/1/",
+							"raw": "{{base_url}}/api/articles/{{article_id}}/",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
 								"articles",
-								"1",
+								"{{article_id}}",
 								""
 							]
 						},
@@ -1349,14 +1370,14 @@
 							"raw": "{\n    \"title\": \"Updated Title\",\n    \"content\": \"Updated content.\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/articles/1/",
+							"raw": "{{base_url}}/api/articles/{{article_id}}/",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
 								"articles",
-								"1",
+								"{{article_id}}",
 								""
 							]
 						},
@@ -1433,14 +1454,14 @@
 							"raw": "{\n    \"title\": \"Trying to update someone else's article\",\n    \"content\": \"This should fail with 403.\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/articles/1/",
+							"raw": "{{base_url}}/api/articles/{{article_id}}/",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
 								"articles",
-								"1",
+								"{{article_id}}",
 								""
 							]
 						},
@@ -1508,14 +1529,14 @@
 						"method": "DELETE",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/articles/1/",
+							"raw": "{{base_url}}/api/articles/{{article_id}}/",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
 								"articles",
-								"1",
+								"{{article_id}}",
 								""
 							]
 						},
@@ -1664,14 +1685,14 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/books/1/",
+							"raw": "{{base_url}}/api/books/{{book_id}}/",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
 								"books",
-								"1",
+								"{{book_id}}",
 								""
 							]
 						},
@@ -1720,7 +1741,16 @@
 								"exec": [
 									"pm.test('Status code is 201', function () {",
 									"    pm.response.to.have.status(201);",
-									"});"
+									"});",
+									"",
+									"// Capture the book ID from the response",
+									"if (pm.response.code === 201) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.id) {",
+									"        pm.collectionVariables.set('book_id', jsonData.id);",
+									"        console.log('Book ID captured: ' + jsonData.id);",
+									"    }",
+									"}"
 								],
 								"type": "text/javascript"
 							}
@@ -1833,14 +1863,14 @@
 							"raw": "{\n    \"title\": \"Updated Book\",\n    \"author\": \"Updated Author\",\n    \"isbn\": \"1234567890123\",\n    \"published_date\": \"2024-01-01\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/books/1/",
+							"raw": "{{base_url}}/api/books/{{book_id}}/",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
 								"books",
-								"1",
+								"{{book_id}}",
 								""
 							]
 						},
@@ -1918,14 +1948,14 @@
 							"raw": "{\n    \"title\": \"Partially Updated Book\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/books/1/",
+							"raw": "{{base_url}}/api/books/{{book_id}}/",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
 								"books",
-								"1",
+								"{{book_id}}",
 								""
 							]
 						},
@@ -1994,14 +2024,14 @@
 						"method": "DELETE",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/books/1/",
+							"raw": "{{base_url}}/api/books/{{book_id}}/",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
 								"books",
-								"1",
+								"{{book_id}}",
 								""
 							]
 						},
