@@ -17,6 +17,7 @@ For Django ASGI applications:
 """
 
 import atexit
+
 from django.apps import AppConfig
 
 
@@ -48,9 +49,9 @@ class JWKSManagerWSGIConfig(AppConfig):
     def ready(self):
         """Initialize JWKS manager on application startup."""
         from axioms_core import (
+            AxiomsConfig,
             initialize_jwks_manager,
             shutdown_jwks_manager,
-            AxiomsConfig,
         )
         from django.conf import settings
 
@@ -104,10 +105,11 @@ class JWKSManagerASGIConfig(AppConfig):
     def ready(self):
         """Initialize async JWKS manager on application startup."""
         import asyncio
+
         from axioms_core import (
+            AxiomsConfig,
             initialize_async_jwks_manager,
             shutdown_async_jwks_manager,
-            AxiomsConfig,
         )
         from django.conf import settings
 
