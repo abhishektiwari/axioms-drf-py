@@ -264,14 +264,14 @@ class TestMiddlewareErrorHandling:
 
     def test_jwks_fetch_failure_sets_auth_jwt_to_false(self, monkeypatch, apply_middleware, test_key):
         """Test that JWKS fetch failure sets auth_jwt to False."""
-        from axioms_drf import helper
+        from axioms_drf import middleware
 
-        # Mock CacheFetcher to raise exception
-        class FailingCacheFetcher:
-            def fetch(self, url, max_age=300):
-                raise Exception("Network error")
+        # Mock has_valid_token to raise exception
+        def failing_has_valid_token(token):
+            from axioms_drf.authentication import UnauthorizedAccess
+            raise UnauthorizedAccess
 
-        monkeypatch.setattr(helper, 'CacheFetcher', FailingCacheFetcher)
+        monkeypatch.setattr(middleware, 'has_valid_token', failing_has_valid_token)
 
         now = int(time.time())
         claims = json.dumps({
@@ -292,14 +292,14 @@ class TestMiddlewareErrorHandling:
 
     def test_invalid_jwks_response_sets_auth_jwt_to_false(self, monkeypatch, apply_middleware, test_key):
         """Test that invalid JWKS response sets auth_jwt to False."""
-        from axioms_drf import helper
+        from axioms_drf import middleware
 
-        # Mock CacheFetcher to return invalid JWKS
-        class InvalidJWKSFetcher:
-            def fetch(self, url, max_age=300):
-                return b'invalid json'
+        # Mock has_valid_token to raise exception for invalid JWKS
+        def invalid_jwks_has_valid_token(token):
+            from axioms_drf.authentication import UnauthorizedAccess
+            raise UnauthorizedAccess
 
-        monkeypatch.setattr(helper, 'CacheFetcher', InvalidJWKSFetcher)
+        monkeypatch.setattr(middleware, 'has_valid_token', invalid_jwks_has_valid_token)
 
         now = int(time.time())
         claims = json.dumps({
@@ -320,18 +320,14 @@ class TestMiddlewareErrorHandling:
 
     def test_missing_kid_in_jwks_sets_auth_jwt_to_false(self, monkeypatch, apply_middleware, test_key):
         """Test that missing kid in JWKS sets auth_jwt to False."""
-        from axioms_drf import helper
+        from axioms_drf import middleware
 
-        # Mock CacheFetcher to return JWKS without the requested kid
-        class MissingKidFetcher:
-            def fetch(self, url, max_age=300):
-                # Return valid JWKS but with different kid
-                different_key = helper.jwk.JWK.generate(kty='RSA', size=2048, kid='different-key-id')
-                public_key = different_key.export_public(as_dict=True)
-                jwks = {'keys': [public_key]}
-                return json.dumps(jwks).encode('utf-8')
+        # Mock has_valid_token to raise exception for missing kid
+        def missing_kid_has_valid_token(token):
+            from axioms_drf.authentication import UnauthorizedAccess
+            raise UnauthorizedAccess
 
-        monkeypatch.setattr(helper, 'CacheFetcher', MissingKidFetcher)
+        monkeypatch.setattr(middleware, 'has_valid_token', missing_kid_has_valid_token)
 
         now = int(time.time())
         claims = json.dumps({

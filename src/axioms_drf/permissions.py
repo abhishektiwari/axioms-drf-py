@@ -57,19 +57,18 @@ Example::
             return Response({'status': 'created'})
 """
 
+from axioms_core import (
+    check_permissions,
+    check_roles,
+    check_scopes,
+    get_claim_from_token,
+)
 from django.core.exceptions import ImproperlyConfigured
 from rest_framework import status
 from rest_framework.exceptions import APIException
 from rest_framework.permissions import BasePermission
 
-from .helper import (
-    check_permissions,
-    check_roles,
-    check_scopes,
-    get_token_permissions,
-    get_token_roles,
-    get_token_scopes,
-)
+from .helper import build_config_from_django_settings
 
 
 class HasAccessTokenScopes(BasePermission):
@@ -164,7 +163,8 @@ class HasAccessTokenScopes(BasePermission):
         """
         try:
             auth_jwt = request.auth_jwt
-            token_scopes = get_token_scopes(auth_jwt)
+            config = build_config_from_django_settings()
+            token_scopes = get_claim_from_token(auth_jwt, "SCOPE", config) or ""
 
             # Get all scope requirements
             all_scopes = getattr(view, "access_token_all_scopes", None)
@@ -181,16 +181,12 @@ class HasAccessTokenScopes(BasePermission):
 
             # Check AND logic (all scopes required) if specified
             if all_scopes:
-                if not token_scopes:
-                    raise InsufficientPermission
-                token_scopes_set = set(token_scopes.split())
-                required_scopes_set = set(all_scopes)
-                if not required_scopes_set.issubset(token_scopes_set):
+                if not check_scopes(token_scopes, all_scopes, operation="AND"):
                     raise InsufficientPermission
 
             # Check OR logic (any scope sufficient) if specified
             if any_scopes:
-                if not token_scopes or not check_scopes(token_scopes, any_scopes):
+                if not check_scopes(token_scopes, any_scopes, operation="OR"):
                     raise InsufficientPermission
 
             # All checks passed
@@ -292,7 +288,8 @@ class HasAccessTokenRoles(BasePermission):
         """
         try:
             auth_jwt = request.auth_jwt
-            token_roles = get_token_roles(auth_jwt)
+            config = build_config_from_django_settings()
+            token_roles = get_claim_from_token(auth_jwt, "ROLES", config) or []
 
             # Get all role requirements
             all_roles = getattr(view, "access_token_all_roles", None)
@@ -309,16 +306,12 @@ class HasAccessTokenRoles(BasePermission):
 
             # Check AND logic (all roles required) if specified
             if all_roles:
-                if not token_roles:
-                    raise InsufficientPermission
-                token_roles_set = set(token_roles)
-                required_roles_set = set(all_roles)
-                if not required_roles_set.issubset(token_roles_set):
+                if not check_roles(token_roles, all_roles, operation="AND"):
                     raise InsufficientPermission
 
             # Check OR logic (any role sufficient) if specified
             if any_roles:
-                if not check_roles(token_roles, any_roles):
+                if not check_roles(token_roles, any_roles, operation="OR"):
                     raise InsufficientPermission
 
             # All checks passed
@@ -421,7 +414,10 @@ class HasAccessTokenPermissions(BasePermission):
         """
         try:
             auth_jwt = request.auth_jwt
-            token_permissions = get_token_permissions(auth_jwt)
+            config = build_config_from_django_settings()
+            token_permissions = (
+                get_claim_from_token(auth_jwt, "PERMISSIONS", config) or []
+            )
 
             # Get all permission requirements
             all_permissions = getattr(view, "access_token_all_permissions", None)
@@ -438,16 +434,16 @@ class HasAccessTokenPermissions(BasePermission):
 
             # Check AND logic (all permissions required) if specified
             if all_permissions:
-                if not token_permissions:
-                    raise InsufficientPermission
-                token_perms_set = set(token_permissions)
-                required_perms_set = set(all_permissions)
-                if not required_perms_set.issubset(token_perms_set):
+                if not check_permissions(
+                    token_permissions, all_permissions, operation="AND"
+                ):
                     raise InsufficientPermission
 
             # Check OR logic (any permission sufficient) if specified
             if any_permissions:
-                if not check_permissions(token_permissions, any_permissions):
+                if not check_permissions(
+                    token_permissions, any_permissions, operation="OR"
+                ):
                     raise InsufficientPermission
 
             # All checks passed
@@ -733,10 +729,12 @@ class InsufficientPermission(APIException):
     This exception is raised by permission classes when a user's JWT token
     doesn't contain the required claims for accessing a protected endpoint.
 
+    Follows RFC 6750 OAuth 2.0 Bearer Token Usage standard.
+
     Attributes:
         status_code: HTTP 403 Forbidden
-        default_detail: Error message dict with error flag and description
-        default_code: ``insufficient_permission``
+        default_detail: Error message dict with RFC 6750 compliant error and description
+        default_code: ``insufficient_scope``
 
     Example::
 
@@ -752,7 +750,7 @@ class InsufficientPermission(APIException):
 
     status_code = status.HTTP_403_FORBIDDEN
     default_detail = {
-        "error": True,
-        "message": "Insufficient role, scope or permission",
+        "error": "insufficient_scope",
+        "error_description": "Insufficient role, scope or permission",
     }
-    default_code = "insufficient_permission"
+    default_code = "insufficient_scope"

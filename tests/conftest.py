@@ -25,13 +25,14 @@ def mock_jwks_data(test_key):
 @pytest.fixture(autouse=True)
 def mock_jwks_fetch(monkeypatch, mock_jwks_data):
     """Mock JWKS fetch to return test keys."""
-    from axioms_drf import helper
+    from unittest.mock import MagicMock
+    from axioms_core import helper as core_helper
 
-    class MockCacheFetcher:
-        def fetch(self, url, max_age=300):
-            return mock_jwks_data
+    # Mock the JWKS manager to return test keys
+    mock_manager = MagicMock()
+    mock_manager.get_jwks.return_value = mock_jwks_data
 
-    monkeypatch.setattr(helper, 'CacheFetcher', MockCacheFetcher)
+    monkeypatch.setattr(core_helper, '_jwks_manager', mock_manager)
 
 
 @pytest.fixture
