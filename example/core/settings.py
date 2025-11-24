@@ -27,6 +27,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    # Axioms JWKS manager - handles automatic initialization and shutdown
+    'axioms_drf.apps.JWKSManagerWSGIConfig',
     'api',
 ]
 
@@ -125,6 +127,10 @@ AXIOMS_JWKS_URL = os.getenv('AXIOMS_JWKS_URL', 'https://jwtforge.dev/.well-known
 
 # Optional: Configure safe HTTP methods that bypass authentication
 # AXIOMS_SAFE_METHODS = ('HEAD', 'OPTIONS')
+
+# Optional: JWKS manager configuration (defaults shown)
+# AXIOMS_JWKS_REFRESH_INTERVAL = 3600  # Refresh JWKS every 1 hour (seconds)
+# AXIOMS_JWKS_CACHE_TTL = 7200         # Cache JWKS for 2 hours (must be >= 2x refresh_interval)
 
 # Cache configuration for JWKS caching
 CACHES = {

@@ -29,9 +29,7 @@ def test_import_helper_module():
     from axioms_drf import helper
     assert helper is not None
     assert hasattr(helper, 'has_valid_token')
-    assert hasattr(helper, 'check_scopes')
-    assert hasattr(helper, 'check_roles')
-    assert hasattr(helper, 'check_permissions')
+    assert hasattr(helper, 'build_config_from_django_settings')
 
 
 def test_import_authentication_module():

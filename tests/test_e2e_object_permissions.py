@@ -104,8 +104,8 @@ class TestIsSubOwner:
         # Should return 403 Forbidden
         assert response.status_code == 403
         assert "error" in response.data
-        assert "message" in response.data
-        assert "permission" in str(response.data["message"]).lower()
+        assert "error_description" in response.data
+        assert "permission" in str(response.data["error_description"]).lower()
 
 
 class TestIsSubOwnerOrSafeOnly:
@@ -222,8 +222,8 @@ class TestIsSubOwnerOrSafeOnly:
         # Should return 403 Forbidden
         assert response.status_code == 403
         assert "error" in response.data
-        assert "message" in response.data
-        assert "permission" in str(response.data["message"]).lower()
+        assert "error_description" in response.data
+        assert "permission" in str(response.data["error_description"]).lower()
 
 
 class TestIsSafeOnly:
@@ -297,5 +297,5 @@ class TestIsSafeOnly:
         # Should return 403 Forbidden
         assert response.status_code == 403
         assert "error" in response.data
-        assert "message" in response.data
-        assert "permission" in str(response.data["message"]).lower()
+        assert "error_description" in response.data
+        assert "permission" in str(response.data["error_description"]).lower()

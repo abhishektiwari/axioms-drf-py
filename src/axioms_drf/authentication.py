@@ -109,10 +109,17 @@ class HasValidAccessToken(authentication.BaseAuthentication):
         Returns:
             str: ``WWW-Authenticate`` header value following RFC 6750.
         """
+        # Use AXIOMS_ISS_URL or AXIOMS_DOMAIN for realm
+        realm = getattr(settings, "AXIOMS_ISS_URL", None)
+        if not realm and hasattr(settings, "AXIOMS_DOMAIN"):
+            domain = settings.AXIOMS_DOMAIN
+            domain = domain.replace("https://", "").replace("http://", "")
+            realm = f"https://{domain}"
+
         return (
-            "Bearer realm='{}', error='unauthorized_access', "
+            "Bearer realm='{}', error='invalid_token', "
             "error_description='Invalid access token'"
-        ).format(settings.AXIOMS_DOMAIN)
+        ).format(realm or "")
 
 
 class IsAccessTokenAuthenticated(HasValidAccessToken):
@@ -213,15 +220,20 @@ class MissingAuthorizationHeader(APIException):
     This exception is raised when a protected endpoint is accessed without
     providing the ``Authorization`` header.
 
+    Follows RFC 6750 OAuth 2.0 Bearer Token Usage standard.
+
     Attributes:
         status_code: HTTP 401 Unauthorized
-        default_detail: Error message dict with error flag and description
-        default_code: ``missing_header``
+        default_detail: Error message dict with RFC 6750 compliant error and description
+        default_code: ``invalid_token``
     """
 
     status_code = status.HTTP_401_UNAUTHORIZED
-    default_detail = {"error": True, "message": "Missing Authorization Header"}
-    default_code = "missing_header"
+    default_detail = {
+        "error": "invalid_token",
+        "error_description": "Missing Authorization Header",
+    }
+    default_code = "invalid_token"
 
 
 class InvalidAuthorizationBearer(APIException):
@@ -230,15 +242,20 @@ class InvalidAuthorizationBearer(APIException):
     This exception is raised when the ``Authorization`` header is present but
     doesn't follow the ``Bearer <token>`` format.
 
+    Follows RFC 6750 OAuth 2.0 Bearer Token Usage standard.
+
     Attributes:
         status_code: HTTP 401 Unauthorized
-        default_detail: Error message dict with error flag and description
-        default_code: ``missing_bearer``
+        default_detail: Error message dict with RFC 6750 compliant error and description
+        default_code: ``invalid_token``
     """
 
     status_code = status.HTTP_401_UNAUTHORIZED
-    default_detail = {"error": True, "message": "Invalid Authorization Bearer"}
-    default_code = "missing_bearer"
+    default_detail = {
+        "error": "invalid_token",
+        "error_description": "Invalid Authorization Bearer",
+    }
+    default_code = "invalid_token"
 
 
 class UnauthorizedAccess(APIException):
@@ -249,15 +266,20 @@ class UnauthorizedAccess(APIException):
     - Token has expired
     - Token audience doesn't match configured ``AXIOMS_AUDIENCE``
     - Token issuer doesn't match configured ``AXIOMS_ISS_URL``
-    - Token algorithm is not in ``ALLOWED_ALGORITHMS``
+    - Token algorithm is not in allowed algorithms
     - Token is missing required claims
+
+    Follows RFC 6750 OAuth 2.0 Bearer Token Usage standard.
 
     Attributes:
         status_code: HTTP 401 Unauthorized
-        default_detail: Error message dict with error flag and description
-        default_code: ``unauthorized_access``
+        default_detail: Error message dict with RFC 6750 compliant error and description
+        default_code: ``invalid_token``
     """
 
     status_code = status.HTTP_401_UNAUTHORIZED
-    default_detail = {"error": True, "message": "Invalid access token."}
-    default_code = "unauthorized_access"
+    default_detail = {
+        "error": "invalid_token",
+        "error_description": "Invalid access token",
+    }
+    default_code = "invalid_token"
